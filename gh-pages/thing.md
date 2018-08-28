@@ -1,5 +1,0 @@
----
-title: "thing"
----
-
-stuff
