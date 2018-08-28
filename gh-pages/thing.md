@@ -1,0 +1,5 @@
+---
+title: "thing"
+---
+
+stuff
