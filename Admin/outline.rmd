@@ -12,25 +12,34 @@ date: "`r as.character(Sys.time())`"
 ## Class meetings
 
 - **Lectures**
-    - MWR 1:30-2:20
-    - Lecture periods will mostly be used for lectures, but may be used for individual or group work on analyses. You may sometimes be expected to bring a laptop or tablet to class; if this is going to be a problem, please contact the instructor as soon as possible to make arrangements. You will need to install free/open-source software on your computer, following instructions to be provided in lab.
-    - Lecture periods at the end of the semester may be used for project work and presentations.
+    - MWR 1:30-2:20, Ivor Wynne Centre (IWC) 224
+    - Lecture periods will mostly be used for lectures, but may be used for individual or group work on analyses. You may sometimes be expected to bring a laptop or tablet to class; if this is going to be a problem, please contact the instructor as soon as possible to make arrangements. You will need to install free/open-source software on your computer.
 
 ```{r get_sched,echo=FALSE}
 ss <- read.csv("schedule.csv",stringsAsFactors=FALSE)
-strip_date <- function(x) gsub("(^[[:alpha:]]+, +| 2017)","",x)
-mtdate <- strip_date(ss[grep("midterm",ss$topic),"date"])
-hwdates <- paste(strip_date(ss[grep("^HW",ss$due),"date"]),collapse=", ")
+strip_date <- function(x) gsub("(^[[:alpha:]]+, +| 2018)","",x)
+extract_date <- function(x) stringr::str_extract(x,"([[:alpha:]]+ )?(Sep|Oct|Nov|Dec) [0-9]+")
+get_date <- function(s) {
+    paste(extract_date(ss[grep(s,ss$due),"due"]),collapse=", ")
+}
+mtdate <- get_date("midterm")
+hwdates <- get_date("^HW")
+f1date <- get_date("final project")
+f2date <- get_date("final exam")
 ```
 
 ## General info
 
 - **Schedule:** Listed [here](https://bbolker.github.io/stat4c03/Admin/schedule.html). Key points (*subject to change*):
-     - in-class midterm: `r mtdate`
+     - take-home midterm due: `r mtdate`
      - HW assignments due: `r hwdates`
-- **Textbook:** 
-- **Prerequisites:** calculus II (one of MATH 1AA3, 1LT3, 1NN3, 1XX3, ARTS&SCI 1D06, ISCI 1A24); and (co-requisite) linear algebra (credit or registration in one of MATH 1B03, 1D03, 1H03, 1HH3; or one of MATH 1ZC3, 1ZZ5).
-- [Course website](https://bbolker.github.io/math3mb) Either you are already here or you need to write this down: `https://bbolker.github.io/mathmb3`. In some cases you may prefer to access files via the [course repository](https://github.com/bbolker/math3mb) (`https://github.com/bbolker/math3mb`).
+	 - final project due: `r f1date`
+	 - take-home final due: `r f2date`
+	 - **Textbook:** Faraway
+- *Catalog description*:
+    Normal linear model, exponential family, iteratively-reweighted least squares, logistic regression, Poisson regression and log-linear models, other families of GLMs, analysis of deviance and model checking, residual analysis. 
+- **Prerequisites:**  ...
+- [Course website](https://bbolker.github.io/stat4c03) Either you are already here or you need to write this down: `https://bbolker.github.io/stat4c03`. In some cases you may prefer to access files via the [course repository](https://github.com/bbolker/stat4c03) (`https://github.com/bbolker/stat4c03`).
 - **Computer software and hardware:**
      - We will be using R for this course.
 - Class rules:
@@ -39,51 +48,26 @@ hwdates <- paste(strip_date(ss[grep("^HW",ss$due),"date"]),collapse=", ")
 	4. try
 	5. ask questions
 
+## Scope
+
+The course will cover the basics of linear and (mostly) generalized linear models; I will assume familiarity with ANOVA and linear regression. While the theoretical framework will be presented, the emphasis will be on solving practical problems. We will go into detail on preparing data for analysis; deciding on and implementing an appropriate models; diagnosing model fit; and interpreting results. Some important statistical topics that I feel are insufficiently covered elsewhere in the curriculum (snooping/garden of forking paths, ethics, data wrangling) will be covered in passing.
+
 ## Assignments and assessment
 
-- There will be a mid-term exam in class and a cumulative final exam during the time scheduled by the registrar's office. Other assignments will include problem sets and a group project (short progress reports and an individual, written report due at the end of the semester). Final grades will be based on the following components: class participation (10%, see below); assignments (20%); projects (35%); midterm (15%); final exam (20%).
+The assignments for the course will consist of biweekly problem sets (a mixture of computational (R-based) and analytical work) (25%), midterm exam (take-home: 25%), a project/extended data analysis (10%) and a take-home final exam (35%). Class participation (see below) will count for 5%.
 
-### Assignments
+Grades will be posted on Avenue.
 
-There will be five homework assignments to hand in for marks (4% each). The due dates for these assignments are on the [course schedule](https://bbolker.github.io/math3mb/admin/schedule.html). Assignments are to be handed in before 11:59 PM on the day they are due. Send your assignment submission to the TA in an email with
-the following subject: your MacID, followed by an underscore, and then the homework number (`hw1`, `hw2`, `hw3`, `hw4`, `hw5`). For example: my own email about homework 1 would be titled `bolkerb_hw1`. Your submission must contain *either*:
-- two files: (1) a formatted text document with graphs and your answers to the assignment questions. The file must be a PDF file named in the same way as the e-mail (e.g. `bolkerb_hw1.pdf`); if you use Word or another other word processing program, be sure to "print to PDF". (2) A *plain-text* file (`bolkerb_hw1.py` or `bolkerb_hw1.R`) containing the computer code (R, or Python) you wrote to generate the graphs.
-- a single "literate programming" document - Rmarkdown (`.Rmd`), Sweave (`.Rnw`), or Jupyter notebook (`.ipynb`) containing your text and code
+The due dates for assignments are on the [course schedule](https://bbolker.github.io/stat4c03/admin/schedule.html). Assignments are to be handed in before 11:59 PM on the day they are due.  Your submission must be in the form of a plain-text file (`.R`, `.Rnw`, or `.Rmd`) along with graphs stored as PDFs and any data files that are necessary to make it run. It must be reproducible on my and the TA's computer.
 - There will be a 10% per day late penalty.
-- An example of a homework assignment in acceptable format is given under the [HomeworkExample](https://github.com/bbolker/math3mb/tree/master/HomeworkExample) directory on the course repository.
-
-### Group projects
-
-- You will be invited to form groups of four to six students. Each group will selects a topic from a list of project topics that will appear on the course website, or request approval for an alternative topic. You will study this topic and write a project proposal and report about it in writing (individually) and orally (as a group, in class). Detailed information about project expectations will be provided during the lectures. Due to the fact that a large number of lectures are dedicated to the group project, attendance may be taken during only those classes. Out of respect to each member of your group, it is important that you attend the sessions and actively participate in the research and writing of the project.
-
-- Your proposals (initial and final) should include the following elements:  
-
-1. A question about the natural or social world that includes *no math*.
-2. Background about that question.
-3. State variables.
-4. A description of the assumptions and parameters (including units).
-5. Model equations for addressing the question.
-6. A proposed analysis for how you would use this model to address your question.
-
-See here for an example [https://github.com/bbolker/mathmb3/tree/master/ProjectProposalExample](https://github.com/bbolker/math3mb/tree/master/ProjectProposalExample)
+- An example of a homework assignment in acceptable format is given under the [HomeworkExample](https://github.com/bbolker/stat4c03/tree/master/HomeworkExample) directory on the course repository.
 
 ### Participation marks
 
 Although you may have experienced otherwise in other courses, these marks will not be arbitrary/subjective.
-Occasionally throughout the semester, you will be asked to write either the instructor or your TA an email (a few sentences to a paragraph) on a particular topic (**subject `3MB3 participation`**).  The purpose of these emails is for us to be able to assess your depth of understanding of non-technical material.  This will allow us to give you feedback and will hopefully make the preparation of your final report at the end of the term less stressful.  If you do not come to lecture you will not hear about these participatory emails.  If you do not send these emails you will receive a low participation mark. You can also enhance your participation mark by engaging with in-class exercises and coming to office hours.
+Occasionally throughout the semester, you will be asked to write either the instructor or your TA an email (a few sentences to a paragraph) on a particular topic (**subject `4/6C03 participation`**).  The purpose of these emails is for us to be able to assess your depth of understanding of non-technical material.  This will allow us to give you feedback and will hopefully make the preparation of your final report at the end of the term less stressful.  If you do not come to lecture you will not hear about these participatory emails.  If you do not send these emails you will receive a low participation mark. You can also enhance your participation mark by engaging with in-class exercises and coming to office hours.
 
-You can gain your first participation mark by sending an e-mail to the instructor or the TA whose *subject line* is "math 3MB: <macid> read the outline". For example, my subject line would be "math 3MB: bolkerb read the outline".
-
-## Course objective and content
-
-**Objective**: To learn to apply mathematical tools to solve open-ended, real-world problems, to understand the benefits and limitations of mathematical modeling, and to critically assess the  predictions based on mathematical models, as well as to stimulate interest in studying more advanced topics (e.g. numerical analysis, differential equations, probability and statistics, and optimization.)
-
-- The course will involve *creative and empirical model construction*. Given real-world scenarios, students will learn to identify a problem, make appropriate assumptions, propose a model, test the assumptions, refine the model if necessary, fit the model to data
-if appropriate, analyze the underlying mathematical structure of the model in order to appraise any sensitivity of the conclusions to the assumptions and model construction.
-- Students will learn model analysis. Given a model, they will learn to work backwards to uncover implicit assumptions, assess critically how well the assumptions reflect the scenario at hand, and estimate the sensitivity of predictions to modifications of the assumptions.
-- The course will focus on modeling of dynamical systems, with an emphasis on biological systems; deterministic discrete-time,
- stochastic discrete-time, and deterministic continuous-time (ordinary differential equation) models will be covered.
-- The course will cover computational methods for graphical displays of data, numerical solutions of different dynamical systems, and simulation modeling.
+You can gain your first participation mark by sending an e-mail to the instructor or the TA whose *subject line* is "stats 4/6C03: `<your_macid>` read the outline", where `<your_macid>` is your MacID (not your student number!)
 
 ## Legal stuff
 
@@ -106,17 +90,23 @@ if appropriate, analyze the underlying mathematical structure of the model in or
     notes, read them over, and then ask your instructor if there is
     something that you do not understand.
 
-2.  No calculators or other aids will be allowed during examinations
-    unless explicitly indicated.
-     
-3.  You will be required to bring your official McMaster University
-    photo identification card to the final examination.
-     
-4.  Students' grades will be returned on Avenue.
+2.  Students' grades will be returned on Avenue.
 
 ### Accommodations
 
-Students who require academic accommodation must contact Student Accessibility Services (SAS) to make arrangements with a Program Coordinator. Academic accommodations must be arranged for each term of study. Student Accessibility Services can be contacted by phone 905-525-9140 ext. 28652 or e-mail `sas@mcmaster.ca`. For further information, consult McMaster University’s [Policy for Academic Accommodation of Students with Disabilities](http://www.mcmaster.ca/policy/Students-AcademicStudies/AcademicAccommodation-StudentsWithDisabilities.pdf)
+Students with disabilities who require academic accommodation must contact Student Accessibility Services (SAS) to make arrangements with a Program Coordinator. Student Accessibility Services can be contacted by phone 905-525-9140 ext. 28652 or e-mail `sas@mcmaster.ca`. For further information, consult McMaster University’s [Policy for Academic Accommodation of Students with Disabilities](http://www.mcmaster.ca/policy/Students-AcademicStudies/AcademicAccommodation-StudentsWithDisabilities.pdf).
+
+In the event of an absence for medical or other reasons, students should review and follow the Academic Regulation in the Undergraduate Calendar “Requests for Relief for Missed Academic Term Work”.
+
+Students requiring academic accommodation based on religious,
+indigenous or spiritual observances should follow the procedures set
+out in the RISO policy. Students requiring a RISO accommodation should
+submit their request to their Faculty Office normally within 10
+working days of the beginning of term in which they anticipate a need
+for accommodation or to the Registrar's Office prior to their
+examinations.  Students should also contact their instructors as soon
+as possible to make alternative arrangements for classes, assignments,
+and tests.
 
 ### Grading scheme
 
@@ -131,7 +121,7 @@ A+     A     A-     B+    B 	B- 	  C+    C 	  C-    D+ 	  D     D-    F
 
 ### Dates subject to change
 
-The instructor and university reserve the right to modify elements of the course during the term. The university may change the dates and deadlines for any or all courses in extreme circumstances. If either type of modification becomes necessary, reasonable notice and communication with the students will be given with explanation and the opportunity to comment on changes. It is the responsibility of the student to check their McMaster email and course websites weekly during the term and to note any changes.
+The instructor and university reserve the right to modify elements of the course during the term. The university may change the dates and deadlines for any or all courses in extreme circumstances (e.g., severe weather, labour disruptions, etc.). Changes will be communicated through regular McMaster communication channels, such as McMaster Daily News, A2L and/or McMaster email. It is the responsibility of the student to check their McMaster email and course websites weekly during the term and to note any changes.
 
 ### Missing tests or work
 
@@ -149,21 +139,29 @@ All assignments are due on Avenue to Learn prior to class, unless otherwise stat
 
 ### Online component
 
-We will be using the learning software Avenue to Learn.  Students should be aware that private information such as first and last names, user names for the McMaster e-mail accounts, and program affiliation may be visible to other students in the course. By taking this course you consent to this disclosure. If you have any questions or concerns about this, please discuss them with the course instructor. Grades will be posted on AtL.
+We will be using the learning software Avenue to Learn. Students should be aware that, when they access the electronic components of this course, private information such as first and last names, user names for the McMaster e-mail accounts,
+and program affiliation may become apparent to all other students in the same course. The available information is dependent on the technology used. Continuation in this course will be deemed consent to this disclosure. If you have any questions or concerns about such disclosure please discuss this with the course instructor.
 
 ### Academic Integrity
 
 The expectations for this class are fairly simple: however, if you have any questions or concerns **please ask me**. See the McMaster Office of Academic Integrity’s web page for general information.
 
-You are expected to exhibit honesty and use ethical behavior in all aspects of the learning process.  Academic credentials you earn are rooted in principles of honesty and academic integrity.  Academic dishonesty can result in serious consequences, including a notation on the transcript, or suspension or expulsion from the university.  It is your responsibility to understand what constitutes academic dishonesty; for more information please refer to the Academic Integrity Policy at <http://www.mcmaster.ca/academicintegrity>.
+You are expected to exhibit honesty and use ethical behavior in all aspects of the learning process.  Academic credentials you earn are rooted in principles of honesty and academic integrity.
+
+Academic dishonesty is to knowingly act or fail to act in a way that results or could result in unearned academic credit or advantage. This behaviour can result in serious consequences, e.g. the grade of zero on an assignment, loss of credit with a notation on the transcript (notation reads: “Grade of F assigned for academic dishonesty”), and/or suspension or expulsion from the university.
+
+It is **your responsibility** to understand what constitutes academic dishonesty. For information on the various types of academic dishonesty please refer to the *Academic Integrity Policy*, located at http://www.mcmaster.ca/academicintegrity. The following illustrates only three forms of academic dishonesty:
+
+- Plagiarism, e.g. the submission of work that is not your own or for which other credit has been obtained.
+- Improper collaboration in group work.
+- Copying or using unauthorized aids in tests and examinations.
 
 Some common academic dishonesty issues:
 
 - *Plagiarism*: For example, the submission of work that is not one's own or for which other credit has been obtained.
 - *Improper collaboration*: In this course, you are encouraged to discuss the assigned problems with other students in your class. You may *discuss* the solutions to problem sets, but **you must write up your solutions yourself without copying phrasing from other students’ work. If you work with others, you must clearly indicate on your write-up who you worked with.**  When work is not explicitly assigned as a group project you must write the solutions in your own words without referring to any other students' work. The copying or even paraphrasing of anyone's solutions will be considered academic dishonesty. For group projects, you will be asked to report your own assessment of how you contributed to the group's work.
 - *Copying or using unauthorized aids in examinations*: In this course you are not allowed to talk to or communicate in any way (e.g. pass notes) with anyone but the instructor or the invigilators during an examination. In the case of a take-home exam, I will clearly indicate at the time what resources you may or may not use. You are on your honor to observe any specified time limits and to refrain from communicating with anyone other than the instructor/TA about the contents of the exam.
-- While it does not technically constitute academic dishonesty, *continuing to write once the announcement that the allotted time for a test or examination is over* without the express consent of the instructor or one of the invigilators will be penalized.
  
-----------------------------------------
+---
 
 This outline will be linked from the course home page. However, it is your responsibility to check the course home page and syllabus regularly for further announcements, course handouts, assigned work and its due dates, information about test dates and locations when this information becomes available, downloadable course related material, etc.. Recorded marks for tests and assignments will be posted on Avenue. You should check these once they become available and bring any discrepancies to the attention of the instructor or the TA as soon as possible.
