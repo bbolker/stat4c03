@@ -1,0 +1,15 @@
+---
+title: "stats 4C/6C03 schedule, fall 2018"
+date: "`r Sys.time()`"
+---
+
+**subject to change**: please check back frequently
+```{r echo=FALSE}
+library(pander)
+ss <- read.csv("schedule.csv",stringsAsFactors=FALSE,
+               colClasses="character")
+```
+
+```{r sched,echo=FALSE,output="as.is"}
+pander(ss,justify="lllll",split.tables=Inf)
+```

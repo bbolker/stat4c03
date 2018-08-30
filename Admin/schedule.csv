@@ -1,0 +1,17 @@
+"chunk","date","topic","due","readings"
+1,"5 Sep","introduction",,
+2,"6, 10, 12 Sep","distributions and estimation; model fitting; design matrices and contrasts","PS 1 (Mon 10)",
+3,"13, 17, 19 Sep","Exponential family and GLMs; estimation",,
+4,"20, 24, 26 Sep","Inference","PS 2 (Mon 24)",
+5,"27 Sep, 1, 3 Oct","Logistic regression",,
+6,"4 Oct","midterm test",,
+"","fall break",,,
+7,"15, 17, 19 Oct","Count data","PS 3 (Mon 15)"
+8,"22, 24, 25 Oct","Extensions: ordinal data, zero-inflation, etc.",
+9,"29, 31 Oct, 1 Nov","Mixed models (I)","PS 4 (Mon 29)"
+10,"5, 7, 8 Nov","Mixed models (II)"
+11,"12, 14, 15 Nov","Mixed models (III)","PS 5 (Mon 12)"
+12,"19, 21, 22 Nov","Bayesian approaches",
+13,"26, 28, 29 Nov","Catch-up/advanced topics","project proposal/draft (Mon 26)"
+14,"3, 5 Dec","Wrap-up"
+"","","","final project (14 Dec)"
