@@ -1,0 +1,4 @@
+- survey? PollEverywhere?
+- colored hyperlinks
+- e-mail grad students about Weds
+- link notes
