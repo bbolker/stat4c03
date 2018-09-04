@@ -2,10 +2,14 @@ SRCDIR=..
 
 
 admin += outline schedule
-## notes += modeling_inference glmm datavis bayes bayeslab mixed_details mixedlab glmm_details glmmlab addons
+rmdnotes += intro distribs ## modeling_inference glmm datavis bayes bayeslab mixed_details mixedlab glmm_details glmmlab addons
+## rmdnotes
+rmdpdf += intro ## modeling_inference glmm datavis bayes bayeslab mixed_details mixedlab glmm_details glmmlab addons
 
 adminhtml := $(admin:%=Admin/%.html)
-## nnrmd := $(notes:%=notes/%.rmd)
+nnrmd := $(rmdnotes:%=notes/%.rmd)
+nnpdf := $(rmdnotes:%=notes/%.pdf)
+
 ## nnslides := notes/glmm.slides.html #$(notes:%=notes/%.slides.html)
 
 ## Datasets += aids.csv  Banta.RData  gopherdat2.csv culcitalogreg.csv gopherdat2.RData starling.RData culcita.RData gophertortoise.txt toenail.csv dufemalepers.csv tundra.csv Elston2001_tickdata.txt lizards.csv tundra_agg.rda
@@ -15,7 +19,7 @@ adminhtml := $(admin:%=Admin/%.html)
 ## dd := $(Datasets:%=data/%)
 ## rr := $(Rfiles:%=R/%)
 
-all: ${adminhtml}
+all: ${adminhtml} ${nnrmd} ${nnpdf}
 
 Admin/%.html: ${SRCDIR}/Admin/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='Admin')" | R --slave
