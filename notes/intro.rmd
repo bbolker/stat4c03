@@ -1,8 +1,11 @@
 ---
 title: intro
 author: "Ben Bolker"
-date: "`r Sys.time()`"
+date: "`r format(Sys.time(),'%d %b %Y')`"
 bibliography: ../glmm.bib
+urlcolor: blue
+header-includes:
+    - \hypersetup{ colorlinks, linkcolor = {blue} }
 ---
 
 ```{r cc,fig.width=0.15, echo=FALSE}
@@ -22,11 +25,16 @@ knit_hooks$set(basefig=function(before, options, envir) {
                    if (before) {
                        par(bty="l",las=1)
                    } else { }
-               })
-library(ggplot2)
-theme_set(theme_bw()) 
+           })
 ```
 
+```{r pkgs,echo=FALSE,message=FALSE}
+library(ggplot2)
+theme_set(theme_bw())
+library(fastglm)
+library(speedglm)
+library(microbenchmark)
+```
 
 ## Logistics
 
@@ -39,26 +47,73 @@ theme_set(theme_bw())
 ## Scope
 
 - Topics
-    - data wrangling, visualization, and reproducible research: R, 
-      `ggplot`, tidyverse, Rmarkdown
-    - best practices/ethics for data analysis
-    - linear models: design matrices, contrasts, etc.
-    - core GLMs: binary (logistic/probit), binomial, Poisson regression
-    - weird GLMs and further topics: complete separation,
-      overdispersion, Gamma models, non-standard links, use of offsets \ldots 
-      general MLE
-    - more weird GLMs: ordinal data etc.
-    - GL mixed Ms: longitudinal / hierarchical / multilevel models
-    - Bayesian methods
+	- core:
+         - linear models: design matrices, contrasts, etc.
+         - core GLMs: binary (logistic/probit), binomial, Poisson regression
+         - weird GLMs and further topics: complete separation, overdispersion, Gamma models, non-standard links, use of offsets
+		 - more weird GLMs: ordinal, negative binomial, zero-inflated
+		 - GL mixed Ms: longitudinal / hierarchical / multilevel models
+		 - Bayesian methods
+    - "extraneous"
+         - data wrangling, visualization, and reproducible research: R, [`ggplot`](https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf), [tidyverse](https://www.tidyverse.org/packages), [Rmarkdown](https://rmarkdown.rstudio.com/)
+         - best practices/ethics for data analysis
 - Procedures
     - data exploration
     - model fitting (estimation)
     - graphical and numerical diagnostics
-    - inference \\
-      (Wald, likelihood, bootstrapping, AIC, \ldots)
+    - inference  
+      (Wald, likelihood, bootstrapping, AIC, ...)
     - verbal and graphical presentation/interpretation of results
 
-\section{Example}
+## What is a GLM?
+
+- handles any linear model
+- *link function* specifies nonlinearity between linear predictor and response
+- response distribution from the *exponential family*  
+(Gaussian, binomial, Poisson, Gamma, ...)
+
+## Why GLMs?
+
+- robust
+- fast
+- sensible, flexible statistical models
+- "sweet spot" in generality and power
+
+```{r run_fastglm,echo=FALSE,cache=TRUE,message=FALSE}
+## example from https://github.com/jaredhuling/fastglm
+##devtools::install_github("jaredhuling/fastglm")
+
+set.seed(123)
+n.obs  <- 10000
+n.vars <- 100
+x <- matrix(rnorm(n.obs * n.vars, sd = 3), n.obs, n.vars)
+y <- 1 * ( drop(x[,1:25] %*% runif(25, min = -0.1, max = 0.10)) > rnorm(n.obs))
+ct <- microbenchmark(
+    glm.fit = {gl1 <- glm.fit(x, y, family = binomial())},
+    speedglm.eigen  = {sg1 <- speedglm.wfit(y, x, intercept = FALSE,
+                                            family = binomial())},
+    speedglm.chol   = {sg2 <- speedglm.wfit(y, x, intercept = FALSE, 
+                                            family = binomial(), method = "Chol")},
+    speedglm.qr     = {sg3 <- speedglm.wfit(y, x, intercept = FALSE,
+                                            family = binomial(), method = "qr")},
+    fastglm.qr.cpiv = {gf1 <- fastglm(x, y, family = binomial())},
+    fastglm.qr      = {gf2 <- fastglm(x, y, family = binomial(), method = 1)},
+    fastglm.LLT     = {gf3 <- fastglm(x, y, family = binomial(), method = 2)},
+    fastglm.LDLT    = {gf4 <- fastglm(x, y, family = binomial(), method = 3)},
+    times = 25L
+)
+```
+
+```{r plot_fastglm,echo=FALSE,message=FALSE}
+ggplot(ct,aes(x=expr,y=time/1e6))+geom_violin(fill="gray")+coord_flip()+
+    scale_y_log10()+
+    stat_summary(fun.y = median, geom = 'point', size = 2)+
+    labs(x="",y="time (ms)",title="computation times for 10000 obs/100 vars/binomial model")
+```
+
+![](../pix/models-glmm.png)
+
+## Example
 
 Using data on AIDS diagnoses from Australia (Dobson and Barnett p. 69).
 Read in data and inspect it:
@@ -89,8 +144,9 @@ or with `ggplot2`
 ```{r pix2}
 library(ggplot2)
 theme_set(theme_bw())  ## get rid of grey background
-p0 <- (ggplot(aids,aes(x=date,y=cases))  ## simple X/Y scatterplot
-    + geom_point()
+ ## simple X/Y scatterplot
+p0 <- (ggplot(aids,aes(x=date,y=cases)) 
+    + geom_point()     ## add points
 )
 print(p0)
 ``` 
@@ -105,7 +161,7 @@ Now pictures with nonparametric and GLM fits superimposed:
 )
 ``` 
 
-Fit a model:
+Fit a model using `glm()`:
 
 ```{r fit1}
 g1 <- glm(cases~date, data=aids, family=poisson)
@@ -120,7 +176,7 @@ plot(g1)  ## plot standard diagnostics
 par(op)  ## restore parameter settings
 ```
 
-Check for autocorrelation as well:
+Check for temporal autocorrelation:
 ```{r acfplot1,basefig=""}
 acf(residuals(g1))
 ``` 
@@ -178,9 +234,9 @@ AIDS(1)=1)?
 $\{`r round(cc[2,1],2)`,`r round(cc[2,2],2)`\}$ --- what
 does that mean biologically/epidemiologically?
 
-There are even more models we could try:
+<!-- There are even more models we could try: -->
 
-```{r allmodels,echo=FALSE}
+```{r allmodels,echo=FALSE,eval=FALSE}
 tmpfun <- function(...,name) {
     pframe <- data.frame(date=seq(min(aids$date),max(aids$date),length=51))
     if (is.list(list(...)[[1]])) newmod <- do.call(update,c(list(g1),...))
@@ -201,12 +257,12 @@ allmods <- do.call(rbind,mapply(tmpfun,
        SIMPLIFY=FALSE))
 p0 + geom_line(data=allmods,aes(colour=method))
 ```
-(confidence intervals suppressed for clarity).
+<!-- (confidence intervals suppressed for clarity). -->
 
 This turns out, like almost every problem, to be interesting and
 a bit challenging when you look at it carefully (see 
-[Andrew Gelman on ``god is in every leaf of every tree''](http://andrewgelman.com/2005/10/06/god_is_in_every/) --- but also consider Tukey [``Far better an approximate answer to the *right* question, which is often vague, than an *exact* answer to the wrong question, which can always be made precise''](http://en.wikiquote.org/wiki/John_Tukey) or
-Grenfell [``don't overegg the pudding''](http://idioms.thefreedictionary.com/over-egg+the+pudding)
+[Andrew Gelman on "god is in every leaf of every tree"](http://andrewgelman.com/2005/10/06/god_is_in_every/) - but also consider Tukey ["Far better an approximate answer to the *right* question, which is often vague, than an *exact* answer to the wrong question, which can always be made precise"](http://en.wikiquote.org/wiki/John_Tukey) or
+Grenfell ["don't overegg the pudding"](http://idioms.thefreedictionary.com/over-egg+the+pudding)
 
 ## References
 
