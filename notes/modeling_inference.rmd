@@ -4,6 +4,31 @@ title: "statistical essentials for modeling"
 bibliography: ../glmm.bib
 ---
 
+<!-- https://stackoverflow.com/questions/51020181/r-markdown-hide-spoiler-text-hover-over-text-element -->
+
+```{css, echo=FALSE}
+.spoiler {
+  visibility: hidden;
+}
+
+.spoiler::before {
+  visibility: visible;
+  content: "Spoiler alert! Hover to see the answer."
+}
+
+.spoiler:hover {
+  visibility: visible;
+}
+
+.spoiler:hover::before {
+  display: none;
+}
+```
+
+```{r pkgs,echo=FALSE,message=FALSE}
+library(ggplot2); theme_set(theme_bw())
+```
+
 # Philosophy
 
 ## What do we mean by statistical inference?
@@ -38,7 +63,7 @@ at least recognize the line between confirmatory and exploratory analyses
 
 ## scientific hell
 
-![](pix/sci_hell.png)
+![](../pix/sci_hell.png)
 
 ## power analysis
 
@@ -52,6 +77,8 @@ at least recognize the line between confirmatory and exploratory analyses
 - simulation-based power analysis (@Bolker2008 ch. 5)
 
 ## goals of analysis [@harrell_regression_2001]
+
+Harrell ch. 4 on [SpringerLink](https://link.springer.com/content/pdf/10.1007%2F978-3-319-19425-7_4.pdf) (McMaster network)
 
 - exploration
 - prediction
@@ -79,7 +106,7 @@ most typical scientific goal
 *qualitative* statements about clarity and importance of effects:
 
 - effects that are distinguishable from null hypothesis of noise
-- test among discrete hypotheses ![](pix/dbend_sm.png)
+- test among discrete hypotheses
 
 *quantitative* statements:
 
@@ -105,7 +132,6 @@ printCoefmat(cc,P.values=TRUE,has.Pvalue=TRUE,cs.ind=numeric(0),
              tst.ind=numeric(0),digits=3)
 
 ```{r pvalplot,echo=FALSE}
-library(ggplot2); theme_set(theme_bw())
 ggplot(dd,aes(ttt,y))+
     geom_pointrange(aes(ymin=y-bar,ymax=y+bar))+
     geom_hline(yintercept=0,lty=2)+
@@ -120,19 +146,43 @@ From a study of influenza mortality, estimating fraction of
 mortality attributable to influenza A, influenza B, or
 weather alone ...
 
-![](pix/flu1.png)
+```{r ci1,echo=FALSE,results="hide"}
+source("../R/ciplots.R")
+means=c(50, 19, 12)
+Pvals=c(0.018, 0.038, 0.882)
+xtags = c('Flu A', 'Flu B', 'Weather')
+ylab = 'Attributable Deaths (per 10,000)'
+pcplot(
+        cx=1.2,
+	means=means,
+	Pvals=Pvals,
+	xtags = xtags,
+	ylab = ylab,
+	showConf=FALSE
+)
+```
 
 Why does weather not seem to have an effect???
 
-## The explanation
+## the explanation
 
-![](pix/flu2.png)
+<p class="spoiler">
+```{r ci2,echo=FALSE,results="hide"}
+pcplot(
+    cx=1.2,
+    means=means,
+    Pvals=Pvals,
+    xtags = xtags,
+    ylab = ylab,
+    showConf=TRUE
+)
+```
+</p>
 
 # realism in data analysis
 
 ## how much data do you need for a given model?
 
-- link to video
 - rule of thumb: 10-20 per data point
 - rules for continuous, count, binomial data
 - counting data points/"degrees of freedom" for clustered data?
@@ -143,62 +193,5 @@ Why does weather not seem to have an effect???
 - discard interactions
 - simplify questions
 - collapse variables, e.g. by PCA
-
-# overview of inference
-
-## modes of inference (@Bolker2008 chapter 6)
-
-- Wald vs. likelihood ratio vs. Bayesian
-- information-theoretic (AIC etc.) methods
-- single vs. multiple parameters:  
-e.g. $Z$ vs $\chi^2$
-- finite-size vs asymptotic:  
-e.g. $Z$ vs. $t$
-
-```{r profile_vs_wald,echo=FALSE,message=FALSE,fig.width=8,fig.height=8}
-par(las=1,bty="l")
-library(ellipse)
-library(bbmle)
-data(ReedfrogFuncresp,package="emdbook")
-m2 = mle2(Killed~dbinom(prob=a/(1+a*h*Initial),size=Initial),
-          start=list(a=0.5,h=0.0125),
-          data=ReedfrogFuncresp)
-binomNLL2 = function(p,N,k) {
-  a = p[1]
-  h = p[2]
-  predprob = a/(1+a*h*N)
-  with(ReedfrogFuncresp,-sum(dbinom(k,prob=predprob,size=N,log=TRUE)))
-}
-op <- par(lwd=2,bty="l",las=1,cex=1.5)
-bsurf3 <-  emdbook::curve3d(binomNLL2(c(x,y),N=ReedfrogFuncresp$Initial,k=ReedfrogFuncresp$Killed),
-  sys="contour",from=c(0.3,0.001),to=c(0.82,0.04),n=c(51,51),
-  levels=-logLik(m2)+qchisq(c(0.8,0.995),2)/2,
-  drawlabels=FALSE,
-  xlab="Attack rate (a)",ylab="Handling time (h)")
-lines(ellipse(vcov(m2),centre=coef(m2),level=0.8),col="gray")
-lines(ellipse(vcov(m2),centre=coef(m2),level=0.995),col="gray")
-legend("topleft",c("profile","information"),lty=1,col=c("black","gray"),
-       bty="n")
-text(c(0.65,0.72),c(0.027,0.036),c("80%","99.5%"))
-par(op)
-```
-
-## Bayesian stats 101
-
-- frequentist inference: based on likelihood function + sampling properties
-- ${\cal L} = \textrm{Prob}(\theta|x)$
-- Bayesian inference: based on likelihood + prior
-    - $\textrm{Posterior}(\theta) \propto {\cal L}(\theta|x) \textrm{Prior}(\theta)$
-- priors are important
-- Bayesian *credible intervals* based on highest posterior density or quantiles
-
-results **more explicitly** based on model + prior choices
-
-## Bayesian stats 102
-
-- *Markov chain Monte Carlo*: computational methods for sampling from the posterior
-- once we have a a sample we can compute mean, confidence intervals ...
-- e.g. `MCMCglmm`, `brms`, `rethinking`
-
 
 ## References
