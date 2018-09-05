@@ -176,7 +176,7 @@ $(document).ready(function () {
 <ul>
 <li>lack of openness (data/methods)</li>
 <li>questionable research practices (QRPs)</li>
-<li>p-hacking; snooping <span class="citation">(Simmons, Nelson, and Simonsohn 2011)</span>; “Texas sharpshooter fallacy”</li>
+<li>p-hacking; fishing; HARKing; snooping; “Texas sharpshooter fallacy”; “researcher degrees of freedom” <span class="citation">(Simmons, Nelson, and Simonsohn 2011)</span></li>
 <li>“garden of forking paths” (Gelman)</li>
 </ul>
 <p><strong>analytic decisions must be made independently of the data</strong></p>
@@ -300,6 +300,29 @@ automatically reduce model complexity</li>
 <li>collapse variables, e.g. by PCA</li>
 </ul>
 </div>
+</div>
+<div id="a-data-analysis-road-map" class="section level1">
+<h1>a data analysis road map</h1>
+<ol style="list-style-type: decimal">
+<li>figure out the (subject-area) question</li>
+<li>design experiment/data collection (power analysis; simulation)</li>
+</ol>
+<hr />
+<ol start="3" style="list-style-type: decimal">
+<li><strong>collect data</strong></li>
+</ol>
+<hr />
+<ol start="4" style="list-style-type: decimal">
+<li>understand the data</li>
+<li>specify the model; <strong>write it down!</strong></li>
+</ol>
+<hr />
+<ol start="6" style="list-style-type: decimal">
+<li>inspect data (Q/A) (return to 5? <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAAAAAAeW/F+AAAABGdBTUEAALGPC/xhBQAAAAJiS0dEAP+Hj8y/AAAACXBIWXMAAAsSAAALEgHS3X78AAAAB3RJTUUH4gkFACoLVS+XygAAA61JREFUKM8BogNd/ABPZ4GJjYqZoF53ssWYZnqim3FmdHFDSGqBkY93cnsASltzfm97qLRrRo3Hr4eKnaKCfp+ulHx8lq+0qX9FAIR9gIiFjZmmk3ODl56Vg1xdlsnDnYWEnrOOhKyiaQBkZWdtZGRmcXV4gpSYhndYQVR/r9C3gFt/kIh+e48AODIrM1eIjoV+fXJpeX6cn6KVdoiej35JTHOxvHUmACMtbI2McEhZgaOgbCE4uM/InDQqJEKYs5xzZlNXXwBvd3ZnXUksRH+1o3gbNb/ZxpwlDyGSytB7JSKFtrQAVVJJVWNrcm5uZWNofLDPuIxdGyCFxLyiYhkttb2nAHF0c3Z5bXF3hZikpZJ7YVRWanuZsZRrTTkPWL28sgBqcnp7f3x0bmNeUlJWZHqNo6SObVk7O0ldg7aokX8AW2NgZ2hgbYSXkZOfmpN+ZEkyJTphjq28t554XDs1AJqdmp2en6GajmZEPDg8NzxKZYa0zci3jVw9MDJQewAnLzg6REY/MTQ3PlRsgp63w83W06piSz0vM2mcvsEAYXR3c2xygIaClqvAurDG07+yuL2mbEkpGUODq7qyALa6t7uytLCajIyPjn9uYFZOWnWPmKyyejYtJTZPYwBiYmVeU0w/NjU4P0dBOzEpIyUxNkRtfn9aJBofIBwAQEJOX2+AjZefnpegnpSIbTMfHx4gIxwiLR4KFRsaAKqqqqSpsauae3dkYl5PRT81FAsSHScvQFVbYWl0cgCUk4pwYVNBNS4zNkBAOTZBUFpphZieoq23sKqahmkAUkE8PjUuKSkvSFBid4WWoK3Dw7ivpZWFc2liTSkVACskKTY9RVdvh6SxuLu3p5uMfXJjVko3LyE+MygsPQA5RGV9k6Sos66klIt9cU1DPjgvMC0rJiAuU2NzjIkAlZ2cm6CknpqJc1dLSEcxOzUtNEJgcHd3h5iYk5KIAI6IhX2PnIhgUUw+PjouITdZgqSgpqymmIuCeG1RQgBycX19enZTRUM2LC0lIlaSu8W7o5KOf2JIOC8tGxQAcXqIjHxUO0AyIxwULXedrLKxq4JXPDIsIB0gHxUWAGlzdnZlRTwsIRsRIWB9e4mSjGY+OC0nJR0WGyY0SwBsbWpkSUM2IBcQG2mMh353blVAOjAdFRY1VGlzdnMAcnF1WDc6KxUQEF2DjJ2bfEE5MSYeFgofc3t3bG92AG1mYkgwJhkMBC1/eXyRj4A/LicYEhEHI1Bsb21pXhtEeEQCjggGAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE4LTA5LTA0VDIwOjQyOjEyLTA0OjAwngSqegAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOC0wOS0wNFQyMDo0MjoxMi0wNDowMO9ZEsYAAAAASUVORK5CYII=" />)</li>
+<li>fit model</li>
+<li>graphical diagnostics (return to 5? <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAAAAAAeW/F+AAAABGdBTUEAALGPC/xhBQAAAAJiS0dEAP+Hj8y/AAAACXBIWXMAAAsSAAALEgHS3X78AAAAB3RJTUUH4gkFACoLVS+XygAAA61JREFUKM8BogNd/ABPZ4GJjYqZoF53ssWYZnqim3FmdHFDSGqBkY93cnsASltzfm97qLRrRo3Hr4eKnaKCfp+ulHx8lq+0qX9FAIR9gIiFjZmmk3ODl56Vg1xdlsnDnYWEnrOOhKyiaQBkZWdtZGRmcXV4gpSYhndYQVR/r9C3gFt/kIh+e48AODIrM1eIjoV+fXJpeX6cn6KVdoiej35JTHOxvHUmACMtbI2McEhZgaOgbCE4uM/InDQqJEKYs5xzZlNXXwBvd3ZnXUksRH+1o3gbNb/ZxpwlDyGSytB7JSKFtrQAVVJJVWNrcm5uZWNofLDPuIxdGyCFxLyiYhkttb2nAHF0c3Z5bXF3hZikpZJ7YVRWanuZsZRrTTkPWL28sgBqcnp7f3x0bmNeUlJWZHqNo6SObVk7O0ldg7aokX8AW2NgZ2hgbYSXkZOfmpN+ZEkyJTphjq28t554XDs1AJqdmp2en6GajmZEPDg8NzxKZYa0zci3jVw9MDJQewAnLzg6REY/MTQ3PlRsgp63w83W06piSz0vM2mcvsEAYXR3c2xygIaClqvAurDG07+yuL2mbEkpGUODq7qyALa6t7uytLCajIyPjn9uYFZOWnWPmKyyejYtJTZPYwBiYmVeU0w/NjU4P0dBOzEpIyUxNkRtfn9aJBofIBwAQEJOX2+AjZefnpegnpSIbTMfHx4gIxwiLR4KFRsaAKqqqqSpsauae3dkYl5PRT81FAsSHScvQFVbYWl0cgCUk4pwYVNBNS4zNkBAOTZBUFpphZieoq23sKqahmkAUkE8PjUuKSkvSFBid4WWoK3Dw7ivpZWFc2liTSkVACskKTY9RVdvh6SxuLu3p5uMfXJjVko3LyE+MygsPQA5RGV9k6Sos66klIt9cU1DPjgvMC0rJiAuU2NzjIkAlZ2cm6CknpqJc1dLSEcxOzUtNEJgcHd3h5iYk5KIAI6IhX2PnIhgUUw+PjouITdZgqSgpqymmIuCeG1RQgBycX19enZTRUM2LC0lIlaSu8W7o5KOf2JIOC8tGxQAcXqIjHxUO0AyIxwULXedrLKxq4JXPDIsIB0gHxUWAGlzdnZlRTwsIRsRIWB9e4mSjGY+OC0nJR0WGyY0SwBsbWpkSUM2IBcQG2mMh353blVAOjAdFRY1VGlzdnMAcnF1WDc6KxUQEF2DjJ2bfEE5MSYeFgofc3t3bG92AG1mYkgwJhkMBC1/eXyRj4A/LicYEhEHI1Bsb21pXhtEeEQCjggGAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE4LTA5LTA0VDIwOjQyOjEyLTA0OjAwngSqegAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOC0wOS0wNFQyMDo0MjoxMi0wNDowMO9ZEsYAAAAASUVORK5CYII=" />)</li>
+<li>interpret parameters; inference; plot results</li>
+</ol>
 <div id="references" class="section level2 unnumbered">
 <h2>References</h2>
 <div id="refs" class="references">
