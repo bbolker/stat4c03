@@ -56,6 +56,7 @@ library(microbenchmark)
 		 - Bayesian methods
     - "extraneous"
          - data wrangling, visualization, and reproducible research: R, [`ggplot`](https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf), [tidyverse](https://www.tidyverse.org/packages), [Rmarkdown](https://rmarkdown.rstudio.com/)
+	     - data visualization; graphical approaches to diagnostics and model interpretation
          - best practices/ethics for data analysis
 - Procedures
     - data exploration

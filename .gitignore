@@ -2,3 +2,6 @@
 */.Rhistory
 *-tikzDictionary
 gh-pages/
+private/
+notes/*_cache
+notes/*_files

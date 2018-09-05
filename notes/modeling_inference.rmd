@@ -52,7 +52,7 @@ many scientific results are unreproducible
 
 - lack of openness (data/methods)
 - questionable research practices (QRPs)
-- p-hacking; snooping [@simmons_false-positive_2011]; "Texas sharpshooter fallacy"
+- p-hacking; fishing; HARKing; snooping; "Texas sharpshooter fallacy"; "researcher degrees of freedom" [@simmons_false-positive_2011]
 - "garden of forking paths" (Gelman)
 
 
@@ -193,5 +193,26 @@ pcplot(
 - discard interactions
 - simplify questions
 - collapse variables, e.g. by PCA
+
+# a data analysis road map
+
+1. figure out the (subject-area) question
+2. design experiment/data collection (power analysis; simulation)
+
+---
+
+3. **collect data**
+
+---
+
+4. understand the data
+5. specify the model; **write it down!**
+
+---
+
+6. inspect data (Q/A) (return to 5? ![](../pix/fp_icon.png))
+7. fit model
+8. graphical diagnostics (return to 5? ![](../pix/fp_icon.png))
+9. interpret parameters; inference; plot results
 
 ## References
