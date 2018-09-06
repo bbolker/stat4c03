@@ -3,14 +3,14 @@ SRCDIR=..
 admin += outline schedule
 pdfnotes += intro distribs
 htmlnotes += modeling_inference
-
 rmdnotes += intro distribs modeling_inference
-## maybe rnwnotes ... ?
+hw += hw1
 
 adminhtml := $(admin:%=Admin/%.html)
 nnrmd := $(rmdnotes:%=notes/%.rmd)
 nnpdf := $(pdfnotes:%=notes/%.pdf)
 nnhtml := $(htmlnotes:%=notes/%.html)
+hwhtml := $(hw:%=HW/%.html)
 
 ## OLD stuff from Morelia
 ## modeling_inference glmm datavis bayes bayeslab mixed_details mixedlab glmm_details glmmlab addons
@@ -20,7 +20,7 @@ nnhtml := $(htmlnotes:%=notes/%.html)
 ## dd := $(Datasets:%=data/%)
 ## rr := $(Rfiles:%=R/%)
 
-all: ${adminhtml} ${nnrmd} ${nnpdf} ${nnhtml}
+all: ${adminhtml} ${nnrmd} ${nnpdf} ${nnhtml} ${hwhtml}
 
 Admin/%.html: ${SRCDIR}/Admin/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='Admin')" | R --slave
@@ -47,6 +47,9 @@ notes/%.slides.html: ${SRCDIR}/notes/%.rmd
 
 notes/%.html: ${SRCDIR}/notes/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='notes')" | R --slave
+
+HW/%.html: ${SRCDIR}/HW/%.rmd
+	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='HW')" | R --slave
 
 notes/%.pdf: ${SRCDIR}/notes/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='tufte_handout',output_dir='notes')" | R --slave
