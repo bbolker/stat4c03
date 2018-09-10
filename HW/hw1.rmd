@@ -1,0 +1,32 @@
+---
+title: "homework 1: review of linear models"
+---
+
+- homework is due in Dropbox on Avenue on **Weds 12 September**.
+- your homework should be saved as R code with comments (`.R`), R markdown (`.Rmd`), or Sweave (`.Rnw`)
+- **none of the following functions should appear in your solution**:
+    - `setwd()`
+    - `rm(list=ls())`
+	- `attach()`
+- the TA or I should be able run your code from scratch without any problems.
+
+Pick a data set and perform the following steps. (For each step, either write R code or text (commented-out if you're writing R code).
+
+- Read the help page for your data set. If you're using your own data set (i.e. one not built into R), give us a brief description of where you got it and what it means.
+- Create univariate plots of the response variable with respect to each of the predictor variables (scatterplots for continuous predictors, boxplots for categorical predictors)
+- Write a brief description (not more than a few sentences) of the patterns you see. Does there seem to be any strong evidence of weirdness in the data at this point (e.g. outliers, strong nonlinearity ...)
+- Fit a linear model to the data using `lm()`. In comments/text, explain why you chose a particular model (i.e. including or excluding predictors, including or excluding interactions).
+- Write code to do graphical diagnostics of the model (typically: fitted vs. residual plot, scale-location plot, Q-Q plot, influence plot). Describe whether you see any cause for concern in the diagnostic plots.
+- Summarize the model results; interpret what the parameters mean.
+- **optional**: try `dotwhisker::dwplot(your_model)`, `library(effects); plot(allEffects(your_model))`, or `sjPlot::plot_model(your_model)` to summarize your model.
+
+Do **not** do any model/variable selection steps (we'll talk about this in class).
+
+Some data sets you could try:
+
+- `rock`: `perm` is the response variable. Do you notice any concerns with non-independence in the data?
+- `mtcars`: `mpg` is the response variable. It is suggested that you pick one or two predictor variables to work with (do *not* do stepwise selection), e.g. `disp`, `cyl`, and `am`. If you do use all possible predictor variables, comment on why this might not give good results.
+- `prostate` (in the `faraway` package): `lpsa` is the response variable.
+- `swiss`: `Fertility` is the response variable.
+
+You can also see `help(package="datasets")` or `install.packages("carData"); help(package="carData")` for more options (obviously, not all of these data sets will be suitable examples for linear regression).
