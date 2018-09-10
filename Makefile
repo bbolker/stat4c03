@@ -1,13 +1,15 @@
 SRCDIR=..
 
 admin += outline schedule
-pdfnotes += intro distribs
+pdfnotes += intro distribs contrasts
 htmlnotes += modeling_inference
 rmdnotes += intro distribs modeling_inference
+rnwnotes += contrasts
 hw += hw1
 
 adminhtml := $(admin:%=Admin/%.html)
 nnrmd := $(rmdnotes:%=notes/%.rmd)
+nnrnw := $(rnwnotes:%=notes/%.rnw)
 nnpdf := $(pdfnotes:%=notes/%.pdf)
 nnhtml := $(htmlnotes:%=notes/%.html)
 hwhtml := $(hw:%=HW/%.html)
@@ -41,7 +43,6 @@ R/%.R:  ${SRCDIR}/R/%.R
 %.pdf: ${SRCDIR}/%.rmd
 	echo "rmarkdown::render(\"$<\",output_dir='.',output_format=\"pdf_document\")" | R --slave
 
-
 notes/%.slides.html: ${SRCDIR}/notes/%.rmd
 	echo "rmarkdown::render(\"$<\",,output_file=\"$@\",output_format='ioslides_presentation',output_dir='notes')" | R --slave
 
@@ -53,6 +54,9 @@ HW/%.html: ${SRCDIR}/HW/%.rmd
 
 notes/%.pdf: ${SRCDIR}/notes/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='tufte_handout',output_dir='notes')" | R --slave
+
+notes/%.pdf: ${SRCDIR}/notes/%.rnw
+	echo "knitr::knit2pdf(\"$<\",output=\"$*.tex\")" | R --slave
 
 glmm_data.zip: 
 	cd ..; zip gh-pages/glmm_data.zip ${dd}
