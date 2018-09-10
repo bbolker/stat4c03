@@ -56,7 +56,7 @@ notes/%.pdf: ${SRCDIR}/notes/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='tufte_handout',output_dir='notes')" | R --slave
 
 notes/%.pdf: ${SRCDIR}/notes/%.rnw
-	echo "knitr::knit2pdf(\"$<\",output=\"$*.tex\")" | R --slave
+	echo "knitr::knit2pdf(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.pdf notes/$*.pdf
 
 glmm_data.zip: 
 	cd ..; zip gh-pages/glmm_data.zip ${dd}
