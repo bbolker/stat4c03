@@ -1,9 +1,12 @@
-\documentclass{./tufte-handout}
+\documentclass{/home/bolker/classes/stat4c03/notes/tufte-handout}
+%% HACK: version of tufte-handout that allows multicolor tables
+%%  need full path for tikz machinery
 \usepackage{url}
 \usepackage{hyperref}
 \usepackage[english]{babel} %% texi2dvi ~ bug
 \hypersetup{colorlinks=true,linkcolor=blue}
 \usepackage{multirow} % for row colours
+\rowcolors{2}{white}{verylightgray}
 \usepackage{amsmath} % for \text{}
 \usepackage{bm}
 \usepackage[utf8]{inputenc}
@@ -33,8 +36,10 @@ Version: \Sexpr{Sys.time()}
 
 <<opts,echo=FALSE,message=FALSE>>=
 library(knitr)
+do_tikz <- TRUE
+dev <- if (do_tikz) "tikz" else "pdf"
 opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
-               dev="tikz")
+               dev=dev)
 knit_hooks$set(basefig=function(before, options, envir) {
                    if (before) {
                        par(bty="l",las=1)
@@ -64,8 +69,6 @@ effect''?
 
 \citet{WilkinsonRogers1973} syntax (R version): (the response variable and tilde
 are implicit throughout, e.g. \verb!y~f1!): see \code{?formula}. In the following table, \code{f} denotes a categorical (factor) variables and \code{x} denotes continuous (numeric) variables
-
-\rowcolors{2}{white}{verylightgray}
 
 \begin{tabular}{c|p{4in}}
   \hline
@@ -416,6 +419,7 @@ Here's a graphical interpretation of the parameters:
 <<lizardcontrasts1,echo=FALSE,message=FALSE>>=
 require("grid")
 library(directlabels)
+parlabs <- if (do_tikz) sprintf("$\\beta_%d$",1:10) else sprintf("beta[%d]",1:10)
 pp <- with(lizards,expand.grid(time=levels(time),light=levels(light)))
 pp$grahami <- predict(lmTL1,newdata=pp)
 cc <- as.list(plyr::rename(coef(lmTL1),c(`(Intercept)`="int")))
@@ -424,15 +428,18 @@ labelpos <- with(cc,
       y=c(int,int,int,int),
       yend=c(int,int+timemidday,int+timelate,int+lightsunny)))
 xpos <- -0.1
-gg_coef1 <- ggplot(pp,aes(x=time,y=grahami,colour=light))+geom_point()+
-  geom_line(aes(group=light))+
-  annotate("segment",x=labelpos$x,xend=labelpos$xend,y=labelpos$y,
-           yend=labelpos$yend,alpha=0.5,
-           arrow=arrow(length = unit(0.3,"cm"),ends="both"))+
-  annotate("text",x=with(labelpos,(x+xend)/2)+xpos,y=with(labelpos,(y+yend)/2),
-label=paste0("beta[",1:4,"]"),parse=TRUE)+
-  annotate("segment",x=labelpos$x[1],xend=labelpos$x[3],y=labelpos$y[1],
-           yend=labelpos$y[1],alpha=0.3,lty=2)
+gg_coef1 <- (ggplot(pp,aes(x=time,y=grahami,colour=light))
+    + geom_point()
+    + geom_line(aes(group=light))
+    + annotate("segment",x=labelpos$x,xend=labelpos$xend,y=labelpos$y,
+               yend=labelpos$yend,alpha=0.5,
+               arrow=arrow(length = unit(0.3,"cm"),ends="both"))
+    + annotate("text",x=with(labelpos,(x+xend)/2)+xpos,
+               y=with(labelpos,(y+yend)/2),
+               label=parlabs[1:4],parse=!do_tikz)
+    + annotate("segment",x=labelpos$x[1],xend=labelpos$x[3],
+               y=labelpos$y[1],yend=labelpos$y[1],alpha=0.3,lty=2)
+    )
 gg_coef1DL <- gg_coef1+geom_dl(method="last.bumpup",
                                aes(x=as.numeric(time)+0.1,
                                    label=light))+
@@ -462,21 +469,24 @@ labelpos <- with(cc,
       yend=c(int,int+timemidday,int+timelate,int+lightsunny,
              int+timemidday+lightsunny+midsunny,int+timelate+lightsunny+latesunny)))
 xpos <- -0.1
-gg_coef2 <- ggplot(pp2,aes(x=time,y=grahami,colour=light))+geom_point()+
-  geom_line(aes(group=light))+
-  annotate("segment",x=1:2,xend=2:3,
-           y=with(cc,c(int+lightsunny,int+timemidday+lightsunny)),
-           yend=with(cc,c(int+timemidday+lightsunny,int+timelate+lightsunny)),
-           colour=gg_color_hue(2)[2],lty=2)+
-  annotate("segment",x=labelpos$x,xend=labelpos$xend,y=labelpos$y,
-           yend=labelpos$yend,alpha=0.5) +
-           ## arrow=arrow(length = unit(0.3,"cm"),ends="both"))+
-  annotate("text",x=with(labelpos,(x+xend)/2)+xpos,y=with(labelpos,(y+yend)/2),
-label=paste0("beta[",1:6,"]"),parse=TRUE)+
-  annotate("segment",x=rep(labelpos$x[1],2),
-                     xend=rep(labelpos$x[3],2),
-                     y=labelpos$yend[c(1,4)],
-                     yend=labelpos$yend[c(1,4)],alpha=0.3,lty=2)
+gg_coef2 <- (ggplot(pp2,aes(x=time,y=grahami,colour=light)) 
+    + geom_point()
+    + geom_line(aes(group=light))+
+    annotate("segment",x=1:2,xend=2:3,
+             y=with(cc,c(int+lightsunny,int+timemidday+lightsunny)),
+             yend=with(cc,c(int+timemidday+lightsunny,int+timelate+lightsunny)),
+             colour=gg_color_hue(2)[2],lty=2)+
+    annotate("segment",x=labelpos$x,xend=labelpos$xend,y=labelpos$y,
+             yend=labelpos$yend,alpha=0.5) +
+    ## arrow=arrow(length = unit(0.3,"cm"),ends="both"))+
+    annotate("text",x=with(labelpos,(x+xend)/2)+xpos,
+             y=with(labelpos,(y+yend)/2),
+             label=parlabs[1:6],parse=!do_tikz)
+    + annotate("segment",x=rep(labelpos$x[1],2),
+               xend=rep(labelpos$x[3],2),
+               y=labelpos$yend[c(1,4)],
+               yend=labelpos$yend[c(1,4)],alpha=0.3,lty=2)
+)
 gg_coef2DL <- gg_coef2+geom_dl(method="last.bumpup",
                                aes(x=as.numeric(time)+0.1,
                                    label=light))+
