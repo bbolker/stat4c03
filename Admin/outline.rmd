@@ -7,12 +7,12 @@ date: "`r as.character(Sys.time())`"
 
 - When e-mailing either the instructor or the TA about the course, **please include "STAT 4/6C03" in the subject and your Mac ID in the body of the e-mail**.
 - *Instructor*: Ben Bolker (`bolker@mcmaster.ca`). Office hours **TBA**; meetings during office hours are preferred but other times may be available by appointment. For more information, see [my web page](http://www.math.mcmaster.ca/bolker). 
-- *Teaching assistants*: TBA They will be marking homework, and assisting with projects. When emailing, *please allow at least one full business day for responses.* Please note also that **the TAs might not respond to emails sent less than 24 hours before any assessment (exam/homework/project).** The primary time to get help is during lab but, time permitting, the TAs may be available for extra help outside of that hour.
+- *Teaching assistants*: Angela Wang, `wangyq@mcmaster.ca` They will be marking homework, and assisting with projects. When emailing, *please allow at least one full business day for responses.* Please note also that **the TA might not respond to emails sent less than 24 hours before any assessment (exam/homework/project).** You should generally get help from the instructor (Bolker) but, time permitting, the TA may be available for extra help.
 
 ## Class meetings
 
 - **Lectures**
-    - MWR 1:30-2:20, Ivor Wynne Centre (IWC) 224
+    - MWR 1:30-2:20, IWC 224 (only until 13 September, thereafter): **JHE 326H** 
     - Lecture periods will mostly be used for lectures, but may be used for individual or group work on analyses. You may sometimes be expected to bring a laptop or tablet to class; if this is going to be a problem, please contact the instructor as soon as possible to make arrangements. You will need to install free/open-source software on your computer.
 
 ```{r get_sched,echo=FALSE}
@@ -35,7 +35,7 @@ f2date <- get_date("final exam")
      - HW assignments due: `r hwdates`
 	 - final project due: `r f1date`
 	 - take-home final due: `r f2date`
-	 - **Textbook:** Faraway
+	 - **Textbook:** Faraway, *Extending the Linear Model with R*, 2d ed. CRC Press/Chapman & Hall, ISBN 978-1-4987-2096-0
 - *Catalog description*:
     Normal linear model, exponential family, iteratively-reweighted least squares, logistic regression, Poisson regression and log-linear models, other families of GLMs, analysis of deviance and model checking, residual analysis. 
 - **Prerequisites:**  ...
