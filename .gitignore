@@ -4,3 +4,4 @@
 *.out
 *.tex
 *-tikzDictionary
+.Rhistory
