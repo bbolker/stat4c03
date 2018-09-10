@@ -61,3 +61,5 @@ notes/%.pdf: ${SRCDIR}/notes/%.rnw
 glmm_data.zip: 
 	cd ..; zip gh-pages/glmm_data.zip ${dd}
 
+%.clean:
+	rm -f $*.out $*.log $*.aux $*-tikzDictionary $*.tex
