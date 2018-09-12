@@ -5,3 +5,4 @@ gh-pages/
 private/
 notes/*_cache
 notes/*_files
+.Rhistory
