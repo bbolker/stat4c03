@@ -1,10 +1,10 @@
 SRCDIR=..
 
 admin += outline schedule
-pdfnotes += intro distribs contrasts
+pdfnotes += intro distribs contrasts glm_deriv
 htmlnotes += modeling_inference
 rmdnotes += intro distribs modeling_inference
-rnwnotes += contrasts
+rnwnotes += contrasts glm_deriv
 hw += hw1
 
 adminhtml := $(admin:%=Admin/%.html)
@@ -22,7 +22,7 @@ hwhtml := $(hw:%=HW/%.html)
 ## dd := $(Datasets:%=data/%)
 ## rr := $(Rfiles:%=R/%)
 
-all: ${adminhtml} ${nnrmd} ${nnpdf} ${nnhtml} ${hwhtml}
+all: ${adminhtml} ${nnrmd} ${nnrnw} ${nnpdf} ${nnhtml} ${hwhtml}
 
 Admin/%.html: ${SRCDIR}/Admin/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='Admin')" | R --slave
@@ -32,6 +32,9 @@ Admin/schedule.html: ${SRCDIR}/Admin/schedule.csv ${SRCDIR}/Admin/schedule.rmd
 ### OLD
 
 notes/%.rmd:  ${SRCDIR}/notes/%.[Rr]md
+	cp $< $@
+
+notes/%.rnw:  ${SRCDIR}/notes/%.[Rr]nw
 	cp $< $@
 
 R/%.R:  ${SRCDIR}/R/%.R

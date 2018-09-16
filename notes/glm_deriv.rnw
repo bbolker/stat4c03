@@ -1,0 +1,338 @@
+\documentclass{tufte-handout}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\boldeta}{{\bm \eta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{GLMs; definition and derivation}
+\author{Ben Bolker}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+Version: \Sexpr{as.character(Sys.time())}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="tikz")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+library(ggplot2)
+theme_set(theme_bw()) 
+@ 
+
+\section{Introduction}
+
+Definition:
+\begin{itemize}
+\item exponential family conditional distribution
+(all we will really use in fitting is the \emph{variance function} $V(\mu)$:
+makes \emph{quasi-likelihood models} possible)
+\item linear model $\boldeta$ (\emph{linear predictor}) $ = \X \bbeta$
+\item smooth, monotonic link function $\eta = g(\mu)$
+\end{itemize}
+
+\newcommand{\llik}{\ell}
+Reminder about the exponential family (notation from
+\citep{McCullaghNelder1989}):
+\begin{equation*}
+\llik = (Y \theta - b(\theta))/a(\phi) + c(Y,\phi)
+\end{equation*}
+where $Y$=data, $\theta$=\emph{location parameter}, $\phi$=
+\emph{dispersion parameter} (\emph{scale parameter}).
+(This is written slightly differently from
+\cite{dobson_introduction_2008}.)
+
+%% Poisson lik=\lambda^x exp(-\lambda)/x!
+%%      loglik= x \log \lambda - \lambda - log(x!)
+May be useful to keep the definitions the Poisson distribution
+in mind to check against:
+\begin{equation}
+\llik(Y,\theta,\phi) = Y (\log \theta) - \exp(\log \theta) - \log(Y!)
+\end{equation}
+so $b = \exp(\theta)$; $a$=identity; $\phi=1$; $c=-\log(Y!)$
+
+\paragraph{Useful facts}
+
+\begin{equation}
+\begin{split}
+E\left(\frac{\partial \llik}{\partial \theta}\right) & = 0 \\
+E((Y- b'(\theta))/a(\phi)) & = 0 \\
+\mu - b'(\theta)/a(\phi) & = 0 \\
+\mu & = b'(\theta)
+\end{split}
+\end{equation}
+\begin{itemize}
+\item Check against Poisson.
+\item Mean depends \emph{only} on $b'(\theta)$.
+\end{itemize}
+
+\begin{equation}
+\begin{split}
+  E\left(\frac{\partial^2 \llik}{\partial \theta^2} \right) & = 
+  - E\left(\frac{\partial \llik}{\partial \theta} \right)^2 \\
+  E\left(\frac{b''(\theta)}{a(\phi)} \right) & = 
+  - E\left(\frac{Y-b'(\theta)}{a(\phi)} \right)^2 \\
+  \frac{b''(\theta)}{a(\phi)}  & = 
+  - \frac{\text{var}(Y)}{a^2(\phi)} \\
+  \text{var}(Y) & = b''(\theta) a(\phi) = \frac{\partial \mu}{\partial \theta} a(\phi) \equiv V(\mu) a(\phi)
+\end{split}
+\end{equation}
+\begin{itemize}
+\item Check against Poisson.
+\item Variance depends \emph{only} on $b''(\theta)$ and $a(\phi)$.
+\end{itemize}
+
+Usually have $a(\phi)=\phi/w$ where $w$ are weights.
+
+\emph{Canonical link} uses $g^{-1}=b$.
+
+\paragraph{Choice of distribution}
+
+As previously discussed, choice of distribution should \emph{usually}
+be dictated by data (e.g. binary data=binomial, counts of a maximum possible value=binomial, counts=Poisson \ldots) however, there is sometimes some wiggle room (Poisson with offset vs. binomial for rare counts; Gamma vs log-Normal for positive data).
+Then:
+\begin{itemize}
+\item Analytical convenience
+\item Computational convenience (e.g. log-Normal $>$ Gamma; Poisson $>$ binomial?)
+\item Interpretability (e.g. Gamma for multi-hit model)
+\item Culture (follow the herd)
+\item Goodness of fit (if it really makes a difference)
+\end{itemize}
+
+<<gammaLN,echo=FALSE>>=
+## gamma, LN with equal mean & variance
+## LN: mean=exp(mu+s^2/2), CV= sqrt(exp(sigma^2) - 1)
+## Gamma: mean=a*s, CV=sqrt(1/a)
+## say mean=1, CV=2
+## a=4, s= 0.25
+## exp(s^2)-1 = 4 -> s^2 = log(5)
+## 1 = exp(mu + log(5)/2)
+## 0 = mu + log(5)/2
+## mu = -log(5)/2
+## TRY AGAIN -- more generally
+## s^2 = log(CV^2+1)
+## mu = log(mean)-log(CV^2+1)/2
+## mean=2, CV=0.5
+sfun <- function(x) c(m=mean(x),cv=sd(x)/mean(x))
+m <- 2; cv <- 0.5
+rr <- rlnorm(1e6,meanlog=log(m)-log(cv^2+1)/2,sdlog=sqrt(log(cv^2+1)))
+rg <- rgamma(1e6,shape=1/cv^2,scale=m/(1/cv^2))
+## sfun(rr)
+## sfun(rg)
+par(las=1,bty="l")
+curve(dlnorm(x,meanlog=log(m)-log(cv^2+1)/2,sdlog=sqrt(log(cv^2+1))),
+      from=0,to=5,ylab="Probability density")
+curve(dgamma(x,shape=1/cv^2,scale=m/(1/cv^2)),col=2,add=TRUE)
+legend("topright",lty=1,col=1:2,c("logNormal","Gamma"))
+title("LN vs Gamma: CV=0.5, mean=2")
+@
+(\emph{Note}: I cheated a little bit. The differences are larger
+for lower CV values \ldots)
+
+\paragraph{Choice of link function}
+
+More or less the same reasons, e.g.:
+\begin{itemize}
+\item analytical: canonical link best (logistic $>$ probit: $g=\Phi^{-1}$) 
+\item computational convenience: logistic $>$ probit
+\item interpretability: 
+  \begin{itemize}
+  \item probit $>$ logistic (latent variable model)
+  \item complementary log-log works well with variable exposure models
+  \item log link: proportional effects (e.g. multiplicative risk models
+    in predator-prey settings)
+  \item logit link: proportional effects on odds
+  \end{itemize}
+\item culture: depends (probit in toxicology, logit in epidemiology \ldots)
+\item restriction of parameter space (log $>$ inverse for Gamma models,
+  because then range of $g^{-1}$ is $(0,\infty)$)
+\item Goodness of fit: probit \emph{very} close to logit
+\end{itemize}
+
+<<problog,echo=FALSE>>=
+par(las=1,bty="l")
+curve(plogis(x,scale=sqrt(3)/pi),from=-5,to=5,ylab="probability")
+curve(pnorm(x),add=TRUE,col=2)
+legend("bottomright",lty=1,col=1:2,c("logit","probit"))
+title("logit vs probit: mean=0, var=1")
+@
+
+\section{Iteratively reweighted least squares}
+
+\subsection{Procedure}
+
+\paragraph{Likelihood equations}
+\begin{itemize}
+\item compute \textbf{adjusted dependent variate}:
+$$
+Z_0 = \hat \eta_0 + (Y-\hat \mu_0) \left( \frac{d\eta}{d\mu} \right)_0
+$$
+(note: $\frac{d\eta}{d\mu} = \frac{d\eta}{d g(\eta)} = 1/g'(\eta)$: 
+translate from raw to linear predictor scale)
+\item compute \textbf{weights}
+$$
+W_0^{-1} = \left( \frac{d\eta}{d\mu}\right)_0^2 V(\hat mu_0)
+$$
+(translate variance from raw to linear predictor scale).
+This is the inverse variance of $Z_0$.
+\item regress $z_0$ on the covariates with weights $W_0$ to
+get new $\bbeta$ estimates ($\to$ new $\boldeta$, $\bmu$, $V(\mu)$ \ldots)
+\end{itemize}
+Tricky bits: starting values, non-convergence, etc.. (We will
+worry about these later!)
+
+\subsection{Justification}
+
+Reminders:
+\begin{itemize}
+\item Maximum likelihood estimation (consistency; asymptotic
+  Normality; asymptotic efficiency; ``when it can do the job, it’s
+  rarely the best tool for the job but it’s rarely much worse than the
+  best'' (S. Ellner); flexibility)
+\item multidimensional Newton-Raphson estimation:
+  iterate solution of $\bm A d\bb = \bm u$ where $\bm A$ is
+  the negative of the
+  \emph{Hessian} (second-derivative matrix of $\llik$ wrt $\bbeta$), 
+  $\bm u$ is 
+  the \emph{gradient} or \emph{score} vector (derivatives of
+  $\llik$ wrt $\bbeta$)
+\end{itemize}
+
+\paragraph{Maximum likelihood equations}
+
+Remember $\llik = (Y \theta - b(\theta))/a(\phi) + c(Y,\phi)$.
+
+Decompose $\frac{\partial \llik}{\partial \beta_j}$ into
+\begin{equation}
+\frac{\partial \llik}{\partial \beta_j} =
+\frac{\partial \llik}{\partial \theta} \cdot
+\frac{\partial \theta}{\partial \mu} \cdot
+\frac{\partial \mu}{\partial \eta} \cdot
+\frac{\partial \eta}{\partial \beta_j}
+\end{equation}
+\begin{itemize}
+\item $\frac{\partial \llik}{\partial \theta}$: effect of
+$\theta$ on log-likelihood, $(Y-\mu)/a(\phi)$.
+\item $\frac{\partial \theta}{\partial \mu}$: effect of 
+mean on $\theta$. $d\mu/d\theta = d(b')/d\theta = b'' = V(\mu)$,
+so this term is $1/V$.
+\item $\frac{\partial \mu}{\partial \eta}$: dependence of
+mean on $\eta$ (this is just the inverse-link function)
+\item $\frac{\partial \eta}{\partial \beta_j}$: 
+the linear predictor $\boldeta = \X \bbeta$, so this is just
+$x_j$.
+\end{itemize}
+So we get
+\begin{equation}
+\begin{split}
+\frac{\partial \llik}{\partial \beta_j} & =
+\frac{(Y-\mu)}{a(\phi)} \cdot
+\frac{1}{V} \cdot
+\frac{d \mu}{d \eta} \cdot
+x_j \\
+& =
+\frac{W}{a(\phi)}
+(Y-\mu)
+\frac{d \eta}{d \mu}
+x_j
+\end{split}
+\end{equation}
+Ignoring weights, this gives us a likelihood (score) equation
+\begin{equation}
+\sum u = \sum W (y-\mu) \frac{d\eta}{d\mu} x_j = 0
+\end{equation}
+
+\paragraph{Scoring method}
+
+Going back to finding solutions of the score equation:
+what is $\bm A$?
+
+\begin{equation}
+\begin{split}
+\bm A_{rs} & = - \frac{\partial u_r}{\partial \beta_s} \\
+& =\sum\left[ (Y-\mu) \frac{\partial}{\partial \beta_s}
+\left(W \frac{d\eta}{d\mu} x_r \right) \right. \\
+& \left. \qquad \mbox{} + W \frac{d\eta}{d\mu} x_r 
+\frac{\partial}{\partial \beta_s} (Y-\mu) \right]
+\end{split}
+\end{equation}
+
+The first term disappears if we take the \emph{expectation} of the
+Hessian (\emph{Fisher scoring}) \emph{or} if we use a canonical link.
+(Explanation of the latter:
+$W d\eta/d\mu$ is constant in this case.
+For a canonical link $\eta=\theta$, 
+so $d\mu/d\eta=db'(\theta)/d\theta=b''(\theta)$. Thus
+$W d\eta/d\mu = 1/V (d\mu/d\eta)^2 d\eta/d\mu= 1/V d\mu/d\eta = 
+1/b''(\theta) \cdot b''(\theta) = 1$.)
+(Most GLM software just uses Fisher scoring regardless of whether
+the link is canonical or non-canonical.)
+
+The second term is
+\begin{equation*}
+\sum W \frac{d\eta}{d\mu} x_r 
+\frac{\partial\mu}{\partial \beta_s}
+= \sum W x_r x_s
+\end{equation*}
+(the sum is over observations) or $\X^T \bm W \X$ (where $\bm W = \text{diag}(W)$)
+
+Then we have 
+\begin{equation}
+\begin{split}
+\bm A \bb^* & = \bm A \bb + \bm u \\
+\X^T \bm W \X  \bb^* & = \X^T \bm W \X  \bb + \bm u \\
+& = \X^T \bm W (\X  \bb) + \X^T (y-\mu) \frac{d\eta}{d\mu} \\ 
+& = \X^T \bm W \boldeta + \X^T \bm W (y-\mu) \frac{d\eta}{d\mu} \\ 
+& = \X^T \bm W \bm z
+\end{split}
+\end{equation}
+This is the same form as a weighted regression \ldots
+so we can use whatever linear algebra tools we already know
+for doing linear regression (QR/Cholesky decomposition, etc.)
+
+\section{Other sources}
+
+\begin{itemize}
+\item \cite{McCullaghNelder1989} is really the derivation
+of IRLS I like best, although I supplemented it at the end
+with \citet{dobson_introduction_2008}.
+\item \cite{myers_appendix_2010} has information about 
+Newton-Raphson with non-canonical links.
+\item more details on fitting:
+\cite{marschner_glm2:_2011}, interesting blog posts by
+\href{http://andrewgelman.com/2011/05/04/whassup_with_gl/}{Andrew Gelman},
+\href{http://www.win-vector.com/blog/2012/08/how-robust-is-logistic-regression/}{John Mount}
+
+\end{itemize}
+\bibliography{glmm}
+
+\end{document}
+
