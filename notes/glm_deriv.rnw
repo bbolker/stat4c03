@@ -16,7 +16,9 @@
 \newcommand{\bbeta}{{\bm \beta}}
 \newcommand{\boldeta}{{\bm \eta}}
 \newcommand{\bmu}{{\bm \mu}}
+\newcommand{\bu}{{\bm u}}
 \newcommand{\X}{\mathbf X}
+\newcommand{\hess}{\bm H}
 
 \title{GLMs; definition and derivation}
 \author{Ben Bolker}
@@ -73,11 +75,16 @@ f(\phi) \mapsto \phi, d(y,\phi) \mapsto c(y,\phi)\}$
 \cite{McCullaghNelder1989,faraway_extending_2016}:
 \begin{equation*}
   \boxed{
-\llik = (y \theta - b(\theta))/\phi + c(y,\phi)
+\llik = (y \theta - b(\theta))/(\phi/w) + c(y,\phi)
 }
 \end{equation*}
 where $y$=data, $\theta$=\emph{location parameter}, $\phi$=
 \emph{dispersion parameter} (\emph{scale parameter}).
+Will mostly ignore the *a priori* weights $w$ in what follows.
+
+The \textbf{canonical link function} 
+($\mu \to \eta$) is $g$ such that $g(\mu) = \theta$,
+or $g^{-1} = b'(\theta)$.
 
 %% Poisson lik=\lambda^x exp(-\lambda)/x!
 %%      loglik= x \log \lambda - \lambda - log(x!)
@@ -86,53 +93,50 @@ where $y$=data, $\theta$=\emph{location parameter}, $\phi$=
 \begin{equation}
 \llik(y,\theta,\phi) = y (\log \theta) - \exp(\log \theta) - \log(y!)
 \end{equation}
-so $b = \exp(\theta)$; $a$=identity; $\phi=1$; $c=-\log(Y!)$
+so $b = \exp(\theta)$; $a$=identity; $\phi=1$; $c=-\log(Y!)$.
+Canonical link is $\log(\mu)=\theta$.
 
 \paragraph{Useful facts}
 
 \begin{itemize}
   \item 
-    \emph{The \emph{score function}  $\frac{\partial \llik}{\partial \theta}$ has expected value zero.}
+    \emph{The \emph{score function}  $\bu = \frac{\partial \llik}{\partial \theta}$ has expected value zero.}
 
-Therefore for exponential family:
+\item Therefore for exponential family:
 \begin{equation}
 \begin{split}
-E((y- b'(\theta))/a(\phi)) & = 0 \\
-\mu - b'(\theta)/a(\phi) & = 0 \\
+E((y- b'(\theta))/\phi) & = 0 \\
+(\mu - b'(\theta))/\phi & = 0 \\
 \mu & = b'(\theta)
 \end{split}
 \end{equation}
-  
+
 (Check against Poisson.)
 \item Mean depends \emph{only} on $b'(\theta)$.
 \end{itemize}
 
+Variance calculation:
 
+\begin{itemize}
+\item For log-likelihood $\llik$,
 \begin{equation}
   E\left(\frac{\partial^2 \llik}{\partial \theta^2} \right)  = 
   - E\left(\frac{\partial \llik}{\partial \theta} \right)^2
 \end{equation}
 
-Therefore for exponential family:
+\item Therefore for exponential family:
 \begin{equation}
 \begin{split}
- \\
-  E\left(\frac{b''(\theta)}{a(\phi)} \right) & = 
-  - E\left(\frac{Y-b'(\theta)}{a(\phi)} \right)^2 \\
-  \frac{b''(\theta)}{a(\phi)}  & = 
-  - \frac{\text{var}(Y)}{a^2(\phi)} \\
-  \text{var}(Y) & = b''(\theta) a(\phi) = \frac{\partial \mu}{\partial \theta} a(\phi) \equiv V(\mu) a(\phi)
+  E\left(\frac{b''(\theta)}{\phi} \right) & = 
+  - E\left(\frac{Y-b'(\theta)}{\phi} \right)^2 \\
+  \frac{b''(\theta)}{\phi}  & = 
+  - \frac{\text{var}(Y)}{\phi^2} \\
+  \text{var}(Y) & = b''(\theta) \phi = \frac{\partial \mu}{\partial \theta} \phi \equiv V(\mu) \phi
 \end{split}
 \end{equation}
-\begin{itemize}
 \item Check against Poisson.
-\item Variance depends \emph{only} on $b''(\theta)$ and $a(\phi)$.
+\item Variance depends \emph{only} on $b''(\theta)$ and $\phi$.
 \end{itemize}
-
-Usually have $a(\phi)=\phi/w$ where $w$ are weights.
-
-\emph{Canonical link} uses $g^{-1}=b$.
-
 
 \section{Iteratively reweighted least squares}
 
@@ -167,11 +171,10 @@ Reminders:
   rarely the best tool for the job but it’s rarely much worse than the
   best'' (S. Ellner); flexibility)
 \item multidimensional Newton-Raphson estimation:
-  iterate solution of $\bm A \Delta \bb = \bm u$ where $\bm A$ is
+  iterate solution of $\hess \bbeta = \bu$ where $\hess$ is
   the negative of the
   \emph{Hessian} (second-derivative matrix of $\llik$ wrt $\bbeta$), 
-  $\bm u$ is 
-  the \emph{gradient} or \emph{score} vector (derivatives of
+  $\bu$ is the \emph{gradient} or \emph{score} vector (derivatives of
   $\llik$ wrt $\bbeta$)
 \end{itemize}
 
@@ -205,30 +208,35 @@ So we get
 \begin{equation}
 \begin{split}
 \frac{\partial \llik}{\partial \beta_j} & =
-\frac{(Y-\mu)}{a(\phi)} \cdot
+\frac{(Y-\mu)}{\phi} \cdot
 \frac{1}{V} \cdot
 \frac{d \mu}{d \eta} \cdot
 x_j \\
 & =
-\frac{1} {a(\phi)} W 
+\frac{1} {\phi} W 
 (Y-\mu)
 \frac{d \eta}{d \mu}
 x_j
 \end{split}
 \end{equation}
-Ignoring weights, this gives us a likelihood (score) equation
+This gives us a likelihood (score) equation
 \begin{equation}
 \sum u = \sum W (y-\mu) \frac{d\eta}{d\mu} x_j = 0
 \end{equation}
+(remember $W = (d\mu/d\eta)^2/V$)
+(this expression ignores \emph{a priori} weights $w$ on the variables, which we use
+in binomial regression).
+We can also express the vector as $W \frac{d\boldeta}{d\bmu} \X^T (\y-\bmu)$.
+
 
 \paragraph{Scoring method}
 
 Going back to finding solutions of the score equation:
-what is $\bm A$?
+what is $\hess$? (We're going to flip the sign of the score $\bu$ now \ldots)
 
 \begin{equation}
 \begin{split}
-\bm A_{rs} & = - \frac{\partial u_r}{\partial \beta_s} \\
+\hess_{rs} & = - \frac{\partial u_r}{\partial \beta_s} \\
 & =\sum\left[ (Y-\mu) \frac{\partial}{\partial \beta_s}
 \left(W \frac{d\eta}{d\mu} x_r \right) \right. \\
 & \left. \qquad \mbox{} + W \frac{d\eta}{d\mu} x_r 
@@ -258,11 +266,11 @@ The second term is
 Then we have  (ignoring $\phi$)
 \begin{equation}
 \begin{split}
-\bm A \bb^* & = \bm A \bb + \bm u \\
-\X^T \bm W \X  \bb^* & = \X^T \bm W \X  \bb + \bm u \\
-& = \X^T \bm W (\X  \bb) + \X^T \bm W (y-\mu) \frac{d\eta}{d\mu} \\ 
+\hess \bbeta^* & = \hess \bbeta + \bu \\
+\X^T \bm W \X  \bbeta^* & = \X^T \bm W \X  \bbeta + \bu \\
+& = \X^T \bm W (\X  \bbeta) + \X^T \bm W (y-\mu) \frac{d\eta}{d\mu} \\ 
 & = \X^T \bm W \boldeta + \X^T \bm W (y-\mu) \frac{d\eta}{d\mu} \\ 
-& = \X^T \bm W \bm z
+\X^T \bm W \X  \bbeta^* & = \X^T \bm W \bm z
 \end{split}
 \end{equation}
 This is the same form as a weighted regression \ldots

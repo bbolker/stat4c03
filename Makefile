@@ -61,6 +61,9 @@ notes/%.pdf: ${SRCDIR}/notes/%.rmd
 notes/%.pdf: ${SRCDIR}/notes/%.rnw
 	echo "knitr::knit2pdf(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.pdf notes/$*.pdf
 
+notes/%.tex: ${SRCDIR}/notes/%.rnw
+	echo "knitr::knit(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.tex notes/$*.tex
+
 glmm_data.zip: 
 	cd ..; zip gh-pages/glmm_data.zip ${dd}
 
