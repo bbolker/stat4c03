@@ -1,10 +1,10 @@
 SRCDIR=..
 
 admin += outline schedule
-pdfnotes += intro distribs contrasts glm_deriv
+pdfnotes += intro distribs contrasts glm_deriv glm_comp
 htmlnotes += modeling_inference
 rmdnotes += intro distribs modeling_inference
-rnwnotes += contrasts glm_deriv
+rnwnotes += contrasts glm_deriv glm_comp
 hw += hw1 hw2
 
 adminhtml := $(admin:%=Admin/%.html)
