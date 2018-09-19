@@ -1,0 +1,192 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{GLM computational details}
+\author{Ben Bolker}
+\date{\today}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="tikz")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+library(ggplot2)
+theme_set(theme_bw()) 
+@ 
+
+\section{Computational details of IRLS}
+
+\subsection{Coding IRLS}
+A \code{family} object in R is coded as a list of useful components:
+<<pfamily>>=
+pfamily <- poisson()
+names(pfamily)
+pfamily$variance
+pfamily$linkinv
+@
+
+It's not \emph{too} hard to write your own GLM function:
+the hard parts are figuring out what to do about special
+situations (tricky starting values, poor convergence, etc..)
+<<myglmfit>>=
+myglmfit <- function(y,X,family,tol=1e-8,maxit=50) {
+    mu <- y  ## set initial values
+    ## set up 'oldbeta' and 'beta' so they're not identical
+    oldbeta <- rep(0,ncol(X))
+    beta    <- rep(1,ncol(X))
+    it <- 1  ## number of iterations
+    while (it < maxit && max(abs((1-beta/oldbeta)))>tol) {
+        oldbeta <- beta 
+        eta <- family$linkfun(mu)    ## calc. linear predictor
+        mm <- family$mu.eta(eta)     ## calc. d(mu)/d(eta)
+        adjdev <- eta + (y-mu)/mm    ## adjusted response
+        W <- c(1/(mm^2*family$variance(mu)))  ## weights
+        beta <- lm.wfit(X,adjdev,W)$coefficients  ## weighted least-squares
+        mu <- family$linkinv(X %*% beta)          ## compute new mu
+        it <- it+1                                ## update
+    }
+    beta
+}
+X <- model.matrix(~wool*tension,data=warpbreaks)
+y <- warpbreaks$breaks
+myglmfit(y,X,poisson())
+coef(glm(breaks~wool*tension,data=warpbreaks,family=poisson))
+@
+
+
+\subsection{A bad example}
+
+GLM likelihood is \emph{log-concave} with a unique solution, so in principle
+we shouldn't have a problem. But the IRLS algorithm doesn't always get us there,
+if the data are bad enough (a more common problem is when the MLEs are
+infinite \ldots we'll discuss this situation later).
+
+\href{http://www.win-vector.com/blog/2012/08/how-robust-is-logistic-regression/}{John Mount} shows the results of 
+
+
+<<badstartfun>>=
+p <- data.frame(x=c(1,0,1,0),y=c(TRUE,TRUE,FALSE,FALSE))
+badstartfun <- function(start) {
+    cc <- coef(glm(y~x,data=p,family=binomial,start=start))
+    sum(cc^2)>1e-12
+}
+badstartfun(c(0,0))
+@
+
+<<compbad,cache=TRUE,echo=FALSE,warning=FALSE>>=
+library(emdbook)
+cc <- curve3d(badstartfun(c(x,y)),
+              xlim=c(-6,6),ylim=c(-6,6),
+              n=c(61,61),sys3d="none")
+dimnames(cc$z) <- list(x=cc$x,y=cc$y)
+library(reshape2)
+ccm <- melt(cc$z)
+@
+
+\includegraphics[width=4in,height=4in]{../pix/diverge.png}
+
+I did it by brute force, using `emdbook::curve3d()` and
+the `glm()` function:
+<<plotbad,message=FALSE,fig.width=5.5,fig.height=5>>=
+library(ggplot2)
+theme_set(theme_bw())
+brkvec <- seq(-6,6,by=2) ## for compatibility with previous pllot
+ggplot(ccm,aes(x,y,fill=value))+geom_tile(alpha=0.5)+
+    scale_fill_discrete(name="answer OK")+
+   scale_x_continuous(expand=c(0,0),breaks=brkvec)+
+    scale_y_continuous(expand=c(0,0),breaks=brkvec)
+@
+%% possible issue with geom_raster() in knitr??
+%% if I switch to geom_raster() I get
+%%   Error in UseMethod("depth") : 
+%%   no applicable method for 'depth' applied to an object of class "NULL"
+%% ???
+
+
+\subsection{Another bad example}
+
+Fitting a \emph{Beverton-Holt} model (\emph{Michaelis-Menten}, \emph{Monod}, \ldots): $y=ax/(b+x)$
+
+Inverse-link trick: $1/y = (b+x)/ax = (b/a) (1/x) + (1/a)$:
+\verb+glm(y ~ I(1/x), family=gaussian(link="inverse"))+
+
+<<BHplot1>>=
+L <- load("bevholt_ex.RData")
+g1 <- ggplot(dat,aes(X,Y)) + geom_point()
+g1 + geom_smooth(method = "glm", family = gaussian(link = "inverse"), 
+                   formula = y ~ I(1/x), start = c(0.01, 1))+
+    geom_smooth(method = "glm", family = gaussian(link = "inverse"), 
+                   formula = y ~ I(1/x), colour="red")
+@    
+
+<<calcBHsurf,echo=FALSE,cache=TRUE>>=
+L <- load("bevholt_ex.RData")
+## dnorm with sd profiled out
+dnorm2 <- function(x,mean,log=FALSE) {
+  ssq <- sum((x-mean)^2)
+  dnorm(x,mean,sd=sqrt(ssq/length(x)),log=log)
+}
+ff <- function(e,f,X=dat$X,Y=dat$Y) {
+  mu <- e+f*(1/X)
+  pred <- 1/mu
+  -sum(dnorm2(Y,mean=pred,log=TRUE))
+}
+cc <- curve3d(ff(x,y),xlim=c(-0.5,2),ylim=c(-5,25),
+              sys3d="none")
+@
+
+<<plotBHsurf,echo=FALSE,fig.width=5,fig.height=5,fig.keep="high">>=
+g1 <- glm(Y~I(1/X),family=gaussian(link="inverse"),data=dat)
+g2 <- glm(Y~I(1/X),family=gaussian(link="inverse"),,
+          start=c(0.01,1),data=dat)
+par(las=1)
+with(cc,image(x,y,z,##useRaster=TRUE,
+              col=gray((100:1)/100),xlab="e",ylab="f"))
+with(cc,contour(x,y,z,add=TRUE))
+points(coef(g1)[1],coef(g1)[2],pch=16,col=4)
+points(coef(g2)[1],coef(g2)[2],pch=16,col=5)
+points(0,0,col=2,pch=16)
+points(0.1,1,col=6,pch=16)
+tred <- adjustcolor("red",alpha=0.5)
+curve(-x,add=TRUE,lwd=3,col=tred)
+curve(-114*x,add=TRUE,lwd=3,col=tred)
+legend("topright",
+       c("good fit","bad fit","default start","new start"),
+       pch=16,col=c(5,4,2,6))
+@
+
+%\bibliography{glmm}
+\end{document}
+

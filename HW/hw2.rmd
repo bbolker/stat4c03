@@ -1,0 +1,127 @@
+---
+title: "homework 2: exponential family, contrasts, etc."
+---
+
+- homework is due in Dropbox on Avenue on **Weds 26 September**.
+- your homework should be saved as R code with comments (`.R`), R markdown (`.Rmd`), or Sweave (`.Rnw`)
+- **none of the following functions should appear in your solution**:
+    - `setwd()`
+    - `rm(list=ls())`
+	- `attach()`
+- the TA or I should be able run your code from scratch without any problems.
+
+
+## understanding contrasts
+
+1. Suppose you have the following data set:
+
+```{r echo=FALSE,results="asis"}
+dd0 <- read.table(header=TRUE,text="
+f1 f2 y
+a  A  2
+a  B  3
+b  A  4
+b  B  6
+")
+pander::pander(dd0)
+```
+
+For each of the following sets of parameters, show
+(i) the name that R would give for the parameter, (ii) the verbal description of the meaning of the parameters, and (iii) the *manual* computation of the value.  For example, for an **additive model with treatment contrasts**, the three parameters would be
+
+> "(Intercept)": value of the baseline level of both parameters (`f1=a`, `f2=A`); ...<br>
+> "f1b": difference between baseline level of `f1` (`a`) and `b`, averaged across both levels of `f2`: ((4-2) + (6-3))/2 =  2.5<br>
+> "f2B": difference between baseline level of `f2` (`A`) and `B`, averaged across both levels of `f1`: ((3-2) + (6-4))/2 = 1.5<br>
+
+(I left out the calculation for the intercept, which is a little tricky: one way to calculate it is as the overall mean (`(2+3+4+6)/4=3.75`), *minus* half of each of the other effects (`3.75-2.5/2-1.5/2 =1.75`). The questions I ask below are easier.)
+
+a. All four parameters for an interactive model (`f1*f2`), using treatment contrasts for both parameters
+
+b. All four parameters for an interactive model (`f1*f2`), using sum-to-zero contrasts
+
+2.  suppose you have these "data":
+
+```{r}
+f <- c("early AM", "late AM", "early PM", "late PM")
+f <- factor(f,levels=f) ## organize levels in observed order
+dd <- data.frame(f,y=1:4)
+```
+
+**read the [notes on parameterization](https://bbolker.github.io/stat4c03/notes/contrasts.pdf), especially the section on "Custom contrasts"**
+
+Set up a contrast matrix `cc` such that (1) $\beta_0$ is the overall average value; (2) $\beta_1$ is the difference between the *average* of the AM and the *average* of the PM values (i.e. `(early_AM+late_AM)/2 - (early_PM+late_PM)/2`); (3) $\beta_2$ is the difference between early and late AM; (4) $\beta_3$ is the difference between early and late PM. Assign the contrasts to `dd$f` and run `coef(lm(y~f))` to confirm that you did it right. (Follow the "contrasts" notes in setting up a matrix by row, with the values in each row corresponding to a contrast; invert the matrix using `solve()`, confirming that the first column is an intercept column; assign the contrast *not including the intercept row* (which will automatically be add by R) to `dd$f` ...)
+
+```{r echo=FALSE,eval=FALSE}
+cc_inv <- matrix(c(1/4,1/4,1/4,1/4,
+                   1/2,1/2,-1/2,-1/2,
+                   1,-1,0,0,
+                   0,0,1,-1),
+                 4,4,
+                 byrow=TRUE)
+cc <- solve(cc_inv)
+contrasts(dd$f) <- cc[,-1]
+lm(y~f,data=dd)
+```
+
+## exponential family
+
+- test "experimentally" that a Gamma-Poisson mixture is negative binomial.
+
+0. use `set.seed(101)` to get reproducible results.
+
+a. Sample 1000 Gamma deviates with mean 2 and standard deviation 0.5 (hint: the parameters of `rgamma` are `shape` and `scale`; the coefficient of variation of a Gamma distribution is `1/sqrt(shape)` and its mean is `shape*scale`. Solve for the desired shape and scale parameters), storing them in a variable `g`. Compute the mean and standard deviation of `g` and check that they're approximately equal to the desired values.
+
+b. Sample 1000 Poisson deviates with means equal to `g`, storing them in a variable `p`;  use `plot(prop.table(table(p)))` to plot their frequencies
+
+c. The dispersion parameter of the negative binomial is called $\theta$ or $k$ in the literature, and is referred to as `size` in R's `*nbinom()` functions. A Gamma-Poisson mixture generated from a Gamma with shape parameter $s$ and mean $m$ gives rise to a negative binomial with mean $m$ and dispersion parameter $s$. Defining `xvec <- 0:8`, use `lines(xvec,dnbinom(xvec, mu=..., size=...))` to overlay the theoretical negative binomial distribution on your computed frequency distribution.
+
+d. the log-Normal distribution is very similar in shape to the Gamma distribution. Given a Normal distribution with mean $\mu$ and variance $\sigma^2$, the corresponding log-Normal distribution has mean $\exp(\mu+\sigma^2/2)$ and variance $(\exp(\sigma^2)-1) \exp(2\mu+\sigma^2)$; therefore in order to get a log-Normal deviate with specified mean `m` and variance `v`, we need parameters $\mu$ and $\sigma$ (`meanlog` and `sdlog` are the parameter names for R's `*lnorm()` functions) defined by:
+
+$$
+\begin{split}
+\phi & = 1 + v/m^2 \\
+\mu & = \ln\left(m/\sqrt{\phi}\right) \\
+\sigma & = \sqrt{\ln(\phi)}
+\end{split}
+$$
+
+(from [Wikipedia](https://en.wikipedia.org/wiki/Log-normal_distribution)!)
+
+e. Use these relationships to sample 1000 log-Normal deviates with mean 2 and standard deviation 0.5 (variance 0.25) [remember that $\ln$ is `log()` in R]; store them as `s2`. Confirm that the mean and standard deviation of `s2` are close to what's expected.
+
+f. Using `s2`, draw 1000 logNormal-Poisson deviates. Plot the frequency table (using `plot(prop.table(table(...)))`; overlay the same negative binomial distribution as above to compare the shape. What differences in shape do you notice?
+
+```{r echo=FALSE,eval=FALSE}
+set.seed(101)
+## cv = 1/sqrt(shape); shape = 1/cv^2
+## scale
+cv <- 0.5/2
+shape <- 1/cv^2
+## shape*scale = mean; scale = mean/shape
+scale <- 2/shape
+g <- rgamma(1000,shape=shape,scale=scale)
+m <- mean(g)
+s <- sd(g)
+p <- rpois(1000,lambda=g)
+plot(prop.table(table(p)))
+## var = mu*(1+mu/k)
+## var/mu-1 = mu/k
+## k = mu/(var/mu-1)
+xvec <- 0:8
+lines(xvec,dnbinom(xvec,mu=2,size=16))
+rlnorm2 <- function(n,m,v) {
+    phi <- 1+v/m^2
+    mu <- log(m/sqrt(phi))
+    sd <- sqrt(log(phi))
+    rlnorm(n,meanlog=mu,sdlog=sd)
+}
+s2 <- rlnorm2(1000,m=2,v=0.25)
+p2 <- rpois(1000,lambda=s2)
+plot(prop.table(table(p2)))
+lines(xvec,dnbinom(xvec,mu=2,size=16))
+## mu + sigma^2/2 = log(m)
+## 2 mu + sigma^2 = log(m)
+## sigma^2 = 2 log(m) - 2 mu
+## v = (exp(2 log(m) - 2 mu) -1) exp(2 log m)
+## 
+```

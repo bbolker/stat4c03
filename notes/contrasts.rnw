@@ -209,14 +209,21 @@ Orthogonal but less intuitive.
 <<helmert1>>=
 (cc <- cbind(1,contr.helmert(4)))
 @ 
+
+The contrast matrix is scaled so that $\sum_j |c_{ij}| = N$, where $N$ is the number of columns ...
+
 <<helmert2,results="hide">>=
 t(cc) %*% cc  ## orthogonal
 @ 
+
+Inverse contrast matrix:
 <<helmert3>>=
 MASS::fractions(solve(cc))
 @ 
 $\beta_1$=mean; $\beta_2$=contrast between levels 1 and 2;
-$\beta_3$=contrast between levels 1\&2 and level 3; etc..
+$\beta_3$=contrast between levels 1\&2 and level 3; 
+$\beta_4$=contrast between levels 1--3 and level 4.
+
 
 <<helmert4>>=
 cfun <- function(contr) {
@@ -287,41 +294,51 @@ emmeans(lm1,spec=~place)
 }
 \end{itemize}
 
-\paragraph{Custom}
+\paragraph{Custom contrasts}
 Can specify contrasts ``by hand'' (\citet{Crawley2002} gives an example too.)
 
 Example:
 <<crawley1>>=
-cmat <- matrix(c(3,-1,-1,-1,
-                 0,1,-1,0,
-                 0,1,1,-2),
-               nrow=4)
-t(cmat) %*% cmat   ## orthogonal
+c_inv <- matrix(
+    c(
+      ## intercept: mean of all levels
+      1/4,1/4,1/4,1/4,
+      ## compare first level against the average of the other three
+      ## (no symbionts vs {crabs, shrimp, or crabs+shrimp})
+      1,-1/3,-1/3,-1/3,
+      ## compare second level (crabs) against the third (shrimp)
+      0,1,-1,0,
+      ## compare the average of the second and third levels {crabs, shrimp}
+      ##  against the fourth level (crabs+shrimp)
+      0,1/2,1/2,-1),
+    nrow=4,
+    byrow=TRUE)
 ## row/column names, for clarity
-dimnames(cmat) <- list(c("none","C","S","CS"),
-                 c("symb","C.vs.S","twosymb"))
-cc <- cbind(mean=1,cmat)   ## add intercept column
-MASS::fractions(solve(cc)) ## fractions() for prettiness
+dimnames(c_inv) <- list(c("intercept","symb","C.vs.S","twosymb"),
+                       c("none","C","S","CS"))
+print(c_inv)
+## test orthogonality
+## (zapsmall() gets rid of tiny non-zero values due to rounding error
+zapsmall(c_inv %*% t(c_inv))   
 @ 
 
-How did we get here? Set up contrasts in human-readable terms:
-<<crawley2>>=
-mm <- matrix(c(1/4,1/4,1/4,1/4,
-               1,-1/3,-1/3,-1/3,
-               0,1,-1,0,
-               0,1/2,1/2,-1),
-             nrow=4)
-MASS::fractions(ss <- zapsmall(solve(mm)))
+What contrast matrix should we use?
+<<cmat>>=
+cmat <- MASS::fractions(solve(c_inv)) ## fractions() for prettiness
+print(cmat)
 @ 
+In this particular case, the matrix inverse is simply a scaled version of the transpose ...
 
-Only difference from the original is scaling.
+When assigning this matrix as the contrast matrix for an analysis, we would omit the first column (`contrasts(.) <- cmat[,-1]`) since R will add an intercept automatically when we fit the model.
 
 \textbf{Other useful contrasts}
 
 Forward difference:
 
 <<crawley3>>=
-(cc <- cbind(mean=1,MASS::contr.sdif(4)))
+cc <- cbind(mean=1,MASS::contr.sdif(4))
+print(MASS::fractions(cc))
+## find inverse-contrast matrix
 MASS::fractions(solve(cc))
 ## not orthogonal at all
 @ 
