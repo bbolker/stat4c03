@@ -5,7 +5,7 @@ pdfnotes += intro distribs contrasts glm_deriv glm_comp
 htmlnotes += modeling_inference
 rmdnotes += intro distribs modeling_inference
 rnwnotes += contrasts glm_deriv glm_comp
-hw += hw1 hw2
+hw += hw1 hw2 hw1_comments
 
 adminhtml := $(admin:%=Admin/%.html)
 nnrmd := $(rmdnotes:%=notes/%.rmd)
@@ -61,8 +61,8 @@ notes/%.pdf: ${SRCDIR}/notes/%.rmd
 notes/%.pdf: ${SRCDIR}/notes/%.rnw
 	echo "knitr::knit2pdf(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.pdf notes/$*.pdf
 
-notes/%.tex: ${SRCDIR}/notes/%.rnw
-	echo "knitr::knit(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.tex notes/$*.tex
+##notes/%.tex: ${SRCDIR}/notes/%.rnw
+##	echo "knitr::knit(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.tex notes/$*.tex
 
 glmm_data.zip: 
 	cd ..; zip gh-pages/glmm_data.zip ${dd}

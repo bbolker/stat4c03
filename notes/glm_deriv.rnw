@@ -83,17 +83,20 @@ where $y$=data, $\theta$=\emph{location parameter}, $\phi$=
 Will mostly ignore the *a priori* weights $w$ in what follows.
 
 The \textbf{canonical link function} 
-($\mu \to \eta$) is $g$ such that $g(\mu) = \theta$,
-or $g^{-1} = b'(\theta)$.
+($\mu \to \eta$) is $g$ such that $g^{-1}=b$.
 
 %% Poisson lik=\lambda^x exp(-\lambda)/x!
 %%      loglik= x \log \lambda - \lambda - log(x!)
 
-\emph{Example:} Poisson distribution
+\emph{Example:} Poisson distribution: use $\theta=\log(\lambda)$.
 \begin{equation}
-\llik(y,\theta,\phi) = y (\log \theta) - \exp(\log \theta) - \log(y!)
+  \begin{split}
+\llik(y,\lambda) & = y \log(\lambda) - \lambda - \log(y!) \\
+\theta & = \log(\lambda) \\
+\llik(y,\theta) & = y \theta - \exp(\theta) - \log(y!)
+\end{split}
 \end{equation}
-so $b = \exp(\theta)$; $a$=identity; $\phi=1$; $c=-\log(Y!)$.
+so $b = \exp$; $\phi=1$; $c=-\log(y!)$.
 Canonical link is $\log(\mu)=\theta$.
 
 \paragraph{Useful facts}
@@ -194,7 +197,7 @@ Decompose $\frac{\partial \llik}{\partial \beta_j}$ into
 \end{equation}
 \begin{itemize}
 \item $\frac{\partial \llik}{\partial \theta}$: effect of
-$\theta$ on log-likelihood, $(Y-\mu)/a(\phi)$.
+$\theta$ on log-likelihood, $(Y-\mu)/\phi$.
 \item $\frac{\partial \theta}{\partial \mu}$: effect of 
 mean on $\theta$. $d\mu/d\theta = d(b')/d\theta = b'' = V(\mu)$,
 so this term is $1/V$.
