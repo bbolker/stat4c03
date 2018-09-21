@@ -37,7 +37,7 @@ For each of the following sets of parameters, show
 
 a. All four parameters for an interactive model (`f1*f2`), using treatment contrasts for both parameters
 
-b. All four parameters for an interactive model (`f1*f2`), using sum-to-zero contrasts
+b. All four parameters for an interactive model (`f1*f2`), using sum-to-zero contrasts for both parameters
 
 2.  suppose you have these "data":
 
@@ -49,7 +49,7 @@ dd <- data.frame(f,y=1:4)
 
 **read the [notes on parameterization](https://bbolker.github.io/stat4c03/notes/contrasts.pdf), especially the section on "Custom contrasts"**
 
-Set up a contrast matrix `cc` such that (1) $\beta_0$ is the overall average value; (2) $\beta_1$ is the difference between the *average* of the AM and the *average* of the PM values (i.e. `(early_AM+late_AM)/2 - (early_PM+late_PM)/2`); (3) $\beta_2$ is the difference between early and late AM; (4) $\beta_3$ is the difference between early and late PM. Assign the contrasts to `dd$f` and run `coef(lm(y~f))` to confirm that you did it right. (Follow the "contrasts" notes in setting up a matrix by row, with the values in each row corresponding to a contrast; invert the matrix using `solve()`, confirming that the first column is an intercept column; assign the contrast *not including the intercept row* (which will automatically be add by R) to `dd$f` ...)
+Set up a contrast matrix `cc` such that (1) $\beta_0$ is the overall average value; (2) $\beta_1$ is the difference between the *average* of the AM and the *average* of the PM values (i.e. `(early_AM+late_AM)/2 - (early_PM+late_PM)/2`); (3) $\beta_2$ is the difference between early and late AM; (4) $\beta_3$ is the difference between early and late PM. Assign the contrasts to `dd$f` and run `coef(lm(y~f))` to confirm that you did it right. (Follow the "contrasts" notes in setting up a matrix by row, with the values in each row corresponding to a contrast; invert the matrix using `solve()`, confirming that the first column is an intercept column; assign the contrast *not including the intercept column* (which will automatically be add by R) to `dd$f` ...)
 
 ```{r echo=FALSE,eval=FALSE}
 cc_inv <- matrix(c(1/4,1/4,1/4,1/4,
