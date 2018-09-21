@@ -335,8 +335,8 @@ curve(dgamma(x,shape=1/cv^2,scale=m/(1/cv^2)),col=2,add=TRUE)
 legend("topright",lty=1,col=1:2,c("logNormal","Gamma"))
 title("LN vs Gamma: CV=0.5, mean=2")
 @
-(\emph{Note}: I cheated a little bit. The differences are larger
-for lower CV values \ldots)
+(\emph{Note}: I cheated a little bit. The differences are smaller
+for smaller CVs/larger shape parameters \ldots)
 
 \paragraph{Choice of link function}
 

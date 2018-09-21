@@ -184,7 +184,7 @@ $(document).ready(function () {
 <p>(I left out the calculation for the intercept, which is a little tricky: one way to calculate it is as the overall mean (<code>(2+3+4+6)/4=3.75</code>), <em>minus</em> half of each of the other effects (<code>3.75-2.5/2-1.5/2 =1.75</code>). The questions I ask below are easier.)</p>
 <ol style="list-style-type: lower-alpha">
 <li><p>All four parameters for an interactive model (<code>f1*f2</code>), using treatment contrasts for both parameters</p></li>
-<li><p>All four parameters for an interactive model (<code>f1*f2</code>), using sum-to-zero contrasts</p></li>
+<li><p>All four parameters for an interactive model (<code>f1*f2</code>), using sum-to-zero contrasts for both parameters</p></li>
 </ol>
 <ol start="2" style="list-style-type: decimal">
 <li>suppose you have these “data”:</li>
@@ -193,7 +193,7 @@ $(document).ready(function () {
 f &lt;- factor(f,levels=f) ## organize levels in observed order
 dd &lt;- data.frame(f,y=1:4)</code></pre>
 <p><strong>read the <a href="https://bbolker.github.io/stat4c03/notes/contrasts.pdf">notes on parameterization</a>, especially the section on “Custom contrasts”</strong></p>
-<p>Set up a contrast matrix <code>cc</code> such that (1) <span class="math inline">\(\beta_0\)</span> is the overall average value; (2) <span class="math inline">\(\beta_1\)</span> is the difference between the <em>average</em> of the AM and the <em>average</em> of the PM values (i.e. <code>(early_AM+late_AM)/2 - (early_PM+late_PM)/2</code>); (3) <span class="math inline">\(\beta_2\)</span> is the difference between early and late AM; (4) <span class="math inline">\(\beta_3\)</span> is the difference between early and late PM. Assign the contrasts to <code>dd$f</code> and run <code>coef(lm(y~f))</code> to confirm that you did it right. (Follow the “contrasts” notes in setting up a matrix by row, with the values in each row corresponding to a contrast; invert the matrix using <code>solve()</code>, confirming that the first column is an intercept column; assign the contrast <em>not including the intercept row</em> (which will automatically be add by R) to <code>dd$f</code> …)</p>
+<p>Set up a contrast matrix <code>cc</code> such that (1) <span class="math inline">\(\beta_0\)</span> is the overall average value; (2) <span class="math inline">\(\beta_1\)</span> is the difference between the <em>average</em> of the AM and the <em>average</em> of the PM values (i.e. <code>(early_AM+late_AM)/2 - (early_PM+late_PM)/2</code>); (3) <span class="math inline">\(\beta_2\)</span> is the difference between early and late AM; (4) <span class="math inline">\(\beta_3\)</span> is the difference between early and late PM. Assign the contrasts to <code>dd$f</code> and run <code>coef(lm(y~f))</code> to confirm that you did it right. (Follow the “contrasts” notes in setting up a matrix by row, with the values in each row corresponding to a contrast; invert the matrix using <code>solve()</code>, confirming that the first column is an intercept column; assign the contrast <em>not including the intercept column</em> (which will automatically be add by R) to <code>dd$f</code> …)</p>
 </div>
 <div id="exponential-family" class="section level2">
 <h2>exponential family</h2>
