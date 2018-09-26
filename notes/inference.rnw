@@ -73,6 +73,14 @@ Predicted values are the expected \emph{geometric} mean of the category.
     \item for intermediate values, linear change in probability with slope $\approx \beta/4$
     \item for large values, as for $\log(1-x)$
     \end{itemize}
+  \item[complementary log-log] change in the \emph{log-hazard}
+    \begin{itemize}
+      \item hazard is the additional probability of failure per unit exposure
+      \item probability of failure in time $t$ = $1-\exp(\exp(\eta)t) = 1-\exp(\textrm{hazard} \cdot t)$
+      \item rather than hazard, log-hazard is used as the linear predictor  so $\eta$ can be any real value (like log-odds)
+      \item $\beta \equiv$ proportional change in hazard
+      \item sensible for survival problems, cumulative exposure
+    \end{itemize}
   \end{description}
 \end{itemize}
 
