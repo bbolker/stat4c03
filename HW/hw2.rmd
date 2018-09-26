@@ -87,7 +87,9 @@ $$
 
 (from [Wikipedia](https://en.wikipedia.org/wiki/Log-normal_distribution)!)
 
-e. Use these relationships to sample 1000 log-Normal deviates with mean 2 and standard deviation 0.5 (variance 0.25) [remember that $\ln$ is `log()` in R]; store them as `s2`. Confirm that the mean and standard deviation of `s2` are close to what's expected.
+Write an R function (preferably; a piece of R code if you absolutely don't know how to write a function) to draw `n` deviates from a log-Normal distribution with mean `m` and variance `v`.
+
+e. Use this code/function to sample 1000 log-Normal deviates with mean 2 and standard deviation 0.5 (variance 0.25) [remember that $\ln$ is `log()` in R]; store them as `s2`. Confirm that the mean and standard deviation of `s2` are close to what's expected.
 
 f. Using `s2`, draw 1000 logNormal-Poisson deviates. Plot the frequency table (using `plot(prop.table(table(...)))`; overlay the same negative binomial distribution as above to compare the shape. What differences in shape do you notice?
 

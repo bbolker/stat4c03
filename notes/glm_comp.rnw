@@ -96,8 +96,10 @@ infinite \ldots we'll discuss this situation later).
 \href{http://www.win-vector.com/blog/2012/08/how-robust-is-logistic-regression/}{John Mount} shows the results of 
 
 
-<<badstartfun>>=
+<<badstartfun,results="hide">>=
 p <- data.frame(x=c(1,0,1,0),y=c(TRUE,TRUE,FALSE,FALSE))
+coef(glm(y~x,data=p,family=binomial,start=c(0,0)))
+coef(glm(y~x,data=p,family=binomial,start=c(5,5)))
 badstartfun <- function(start) {
     cc <- coef(glm(y~x,data=p,family=binomial,start=start))
     sum(cc^2)>1e-12
@@ -123,9 +125,9 @@ the `glm()` function:
 library(ggplot2)
 theme_set(theme_bw())
 brkvec <- seq(-6,6,by=2) ## for compatibility with previous pllot
-ggplot(ccm,aes(x,y,fill=value))+geom_tile(alpha=0.5)+
+ggplot(ccm,aes(x,y,fill=!value))+geom_tile(alpha=0.5)+
     scale_fill_discrete(name="answer OK")+
-   scale_x_continuous(expand=c(0,0),breaks=brkvec)+
+    scale_x_continuous(expand=c(0,0),breaks=brkvec)+
     scale_y_continuous(expand=c(0,0),breaks=brkvec)
 @
 %% possible issue with geom_raster() in knitr??
@@ -143,7 +145,7 @@ Inverse-link trick: $1/y = (b+x)/ax = (b/a) (1/x) + (1/a)$:
 \verb+glm(y ~ I(1/x), family=gaussian(link="inverse"))+
 
 <<BHplot1>>=
-L <- load("bevholt_ex.RData")
+L <- load("../data/bevholt_ex.RData")
 g1 <- ggplot(dat,aes(X,Y)) + geom_point()
 g1 + geom_smooth(method = "glm", family = gaussian(link = "inverse"), 
                    formula = y ~ I(1/x), start = c(0.01, 1))+

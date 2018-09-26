@@ -525,6 +525,43 @@ pr(lmTL2S <- update(lmTL2,contrasts=list(time=contr.sum,light=contr.sum)))
 because the data are unbalanced:
 try \code{with(lizards,table(light,time))} ...)
 
+Here's a little more detail on how the parameters are estimated.
+
+Compute means for each factor combination:
+<<liz_agg>>=
+(dd <- aggregate(grahami~light*time,FUN=mean,data=lizards))
+@ 
+
+The intercept is the mean of all the conditions:
+<<liz_int>>=
+(liz_intercept <- mean(dd$grahami))
+@ 
+
+The \code{time1} effect is the 
+difference between the average of (sunny, early) and (shady, early) and the intercept:
+<<liz_time1>>=
+(liz_time1 <- with(dd,
+     mean(c(grahami[light=="sunny" & time=="early"],
+            grahami[light=="shady" & time=="early"])))-liz_intercept)
+@ 
+
+The \code{light1} effect is the 
+difference between the average of the shady conditions and the intercept:
+<<liz_light1>>=
+(liz_time1 <- with(dd,
+     mean(grahami[light=="shady"]))-liz_intercept)
+@ 
+
+The first interaction term is the difference between the observed value 
+(early, shady) and the expected value based on all of the
+additive/lower-order effects ...
+
+<<liz_interax>>=
+cc <- as.list(coef(lmTL2S))
+(liz_interax1 <- with(dd, grahami[light=="shady" & time=="early"]) -
+    with(cc, `(Intercept)` + time1 + light1))
+@ 
+
 \section{Other refs}
 
 \begin{itemize}
