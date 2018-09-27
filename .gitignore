@@ -6,3 +6,5 @@ private/
 notes/*_cache
 notes/*_files
 .Rhistory
+notes/cache
+notes/figure

@@ -117,6 +117,9 @@ library(reshape2)
 ccm <- melt(cc$z)
 @
 
+Picture from Mount's blog on starting conditions for which
+the fit gets \emph{worse} on the initial step:
+
 \includegraphics[width=4in,height=4in]{../pix/diverge.png}
 
 I did it by brute force, using `emdbook::curve3d()` and
@@ -136,6 +139,35 @@ ggplot(ccm,aes(x,y,fill=!value))+geom_tile(alpha=0.5)+
 %%   no applicable method for 'depth' applied to an object of class "NULL"
 %% ???
 
+<<moreglmstuff,echo=FALSE,cache=TRUE>>=
+X <-  model.matrix(~x,data=p)
+ff <- binomial()
+step1 <- function(beta0) {
+    eta <- c(X %*% t(beta0))
+    mu <- ff$linkinv(eta)
+    dev0 <- -sum(dbinom(p$y,prob=mu,size=1,log=TRUE))
+    mm <- ff$mu.eta(eta)
+    adjdev <- eta + (p$y-mu)/mm
+    W <- c(1/(mm^2*ff$variance(mu)))
+    beta1 <- lm.wfit(X,adjdev,W)$coefficients
+    return(setNames(c(dev0,beta1),c("dev0","b0_new","b1_new")))
+}
+cc1 <- expand.grid(b0=seq(-6,6,length.out=61),
+            b1=seq(-6,6,length.out=61))
+cc1 <- plyr::adply(cc1,1,step1)
+cc2 <- cc1
+## cc2 <- subset(cc1,-2< b0 & b0<2 & -2 <b1 & b1<2)
+cc2 <- cc2[seq(nrow(cc2))%%10 == 0,]
+ggplot(cc1,aes(b0,b1,fill=dev0,z=dev0))+geom_tile()+
+    geom_contour(colour="red")+
+    geom_segment(data=cc2,
+                 aes(x=b0,y=b1,xend=b0_new,yend=b1_new),colour="gray")+
+    coord_cartesian(xlim=c(-10,10),ylim=c(-10,10))
+cc1S <- subset(cc1,b1==0)
+ggplot(cc1S,
+       aes(x=b0,y=dev0))+geom_line()
+ss <- splines::interpSpline(dev0~b0,cc1S)
+@ 
 
 \subsection{Another bad example}
 
@@ -147,14 +179,17 @@ Inverse-link trick: $1/y = (b+x)/ax = (b/a) (1/x) + (1/a)$:
 <<BHplot1>>=
 L <- load("../data/bevholt_ex.RData")
 g1 <- ggplot(dat,aes(X,Y)) + geom_point()
-g1 + geom_smooth(method = "glm", family = gaussian(link = "inverse"), 
-                   formula = y ~ I(1/x), start = c(0.01, 1))+
-    geom_smooth(method = "glm", family = gaussian(link = "inverse"), 
-                   formula = y ~ I(1/x), colour="red")
+g1 + geom_smooth(method = "glm", 
+                 method.args=list(family = gaussian(link = "inverse"),
+                                  start = c(0.01, 1)), 
+                 formula = y ~ I(1/x), )+
+    geom_smooth(method = "glm", 
+                method.args=list(family = gaussian(link = "inverse")), 
+                formula = y ~ I(1/x), colour="red")
 @    
 
 <<calcBHsurf,echo=FALSE,cache=TRUE>>=
-L <- load("bevholt_ex.RData")
+L <- load("../data/bevholt_ex.RData")
 ## dnorm with sd profiled out
 dnorm2 <- function(x,mean,log=FALSE) {
   ssq <- sum((x-mean)^2)
@@ -171,7 +206,7 @@ cc <- curve3d(ff(x,y),xlim=c(-0.5,2),ylim=c(-5,25),
 
 <<plotBHsurf,echo=FALSE,fig.width=5,fig.height=5,fig.keep="high">>=
 g1 <- glm(Y~I(1/X),family=gaussian(link="inverse"),data=dat)
-g2 <- glm(Y~I(1/X),family=gaussian(link="inverse"),,
+g2 <- glm(Y~I(1/X),family=gaussian(link="inverse"),
           start=c(0.01,1),data=dat)
 par(las=1)
 with(cc,image(x,y,z,##useRaster=TRUE,

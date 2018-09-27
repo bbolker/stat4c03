@@ -1,0 +1,253 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{Parameter interpretation and inference}
+\author{Ben Bolker}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="tikz")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+library(ggplot2)
+theme_set(theme_bw()) 
+@ 
+
+\section{Interpreting parameters}
+
+\begin{itemize}
+\item continuous: units: depends whether scaled or not (talk about \textbf{scaling parameters})
+\item categorical: differences between groups: depends on contrasts
+\item depends on presence of interactions 
+\item \textbf{scale of measurement}: \emph{link scale}
+  \begin{description}
+  \item[log] proportional
+The argument here is that if $\mu_0 = \exp{\beta_0}$ and $\mu_1= \exp{\beta_0+\beta_1 x}$, 
+\begin{equation*}
+\begin{split}
+  \mu_1 & = \exp(\beta_0+\beta_1 x) \\
+  & = \mu_0 \exp(\beta_1 x) \\
+  & \approx \mu_0 (1 + \beta_1 x) \qquad \mbox{if } \beta_1 x \ll 1
+\end{split}
+\end{equation*}
+so for continuous predictors $\beta_1$ is the proportional change 
+in the mean per unit change in $x$ (for categorical predictors
+it's the proportional change between categories).
+
+Predicted values are the expected \emph{geometric} mean of the category.
+\item[logit] log-odds change. 
+    \begin{itemize}
+    \item for $\beta \Delta x$ small, as for log (proportional)
+    \item for intermediate values, linear change in probability with slope $\approx \beta/4$
+    \item for large values, as for $\log(1-x)$
+    \end{itemize}
+  \item[complementary log-log] change in the \emph{log-hazard}
+    \begin{itemize}
+      \item hazard is the additional probability of failure per unit exposure
+      \item probability of failure in time $t$ = $1-\exp(\exp(\eta)t) = 1-\exp(\textrm{hazard} \cdot t)$
+      \item rather than hazard, log-hazard is used as the linear predictor  so $\eta$ can be any real value (like log-odds)
+      \item $\beta \equiv$ proportional change in hazard
+      \item sensible for survival problems, cumulative exposure
+    \end{itemize}
+  \end{description}
+\end{itemize}
+
+\section{Inference}
+
+\subsection{Single vs multi-parameter}
+
+\paragraph{Single-parameter}
+
+\emph{Wald} vs. \emph{likelihood ratio} test (LRT): 
+the former is easier
+(it's what you get from \code{summary()}), because 
+Wald standard errors of the estimates ($\sigma_{\hat \beta}$)
+are automatically available 
+from the Hessian of the fitted model, so we can get
+$p$-values via a $Z$ test on $\hat \beta/\sigma_{\hat \beta}$
+(this is what \code{summary} gives)
+and confidence intervals via Normal confidence intervals
+on $\hat \beta$.
+
+The \emph{Hauck-Donner effect} occurs in cases of extreme
+parameter estimates (e.g. in the case of complete or
+near-complete separation), when the quadratic approximation
+is extremely poor: the hallmark is large parameter estimates
+(e.g. $|\hat \beta|>10$) and very large confidence intervals
+(leading to small $Z$ statistics and large $p$ values).
+
+You can get LRTs via 
+\begin{itemize}
+\item \code{drop1(.,test="Chisq")} (only on parameters
+that can be dropped while respecting marginality, unless
+you use \verb!scope= .~.!)
+\item \code{anova()}, explicitly testing different models:
+<<test_reduced, eval=FALSE>>=
+reduced_model <- update(full_model,.~.-foo)
+anova(full_model,reduced_model,test="Chisq")
+@
+where \code{foo} is the parameter you want to test.
+\item or by hand (having fitted these models)
+<<pchisq,eval=FALSE>>=
+pchisq(deviance(reduced_model)-deviance(full_model),
+       df=df.residual(reduced_model)-df.residual(full_model),
+       lower.tail=FALSE)
+@
+\end{itemize}
+
+You can get \emph{profile confidence intervals} via
+\code{MASS::confint.glm}.
+
+\paragraph{Multi-parameter}
+
+If you want to test a hypothesis that multiple $\hat \beta$
+values are simultaneously zero (i.e. you want to see if the
+overall effect of a factor is significant), you \emph{could}
+do a Wald test: e.g. to test $\hat \beta_1=\hat \beta_2=0$,
+you would calculate the sums of squares
+($\hat \beta_1^2 + \hat \beta_2^2=0$) and the variance; the
+scaled result should be $\chi^2$ distributed.
+<<contr,eval=FALSE>>=
+contr <- c(1,1)
+t(contr) %*% vcov(model) %*% contr
+pchisq(...)
+@
+
+This is what \code{car::Anova()} does.
+It generally makes more sense to do model comparisons. Do this with \code{anova()} or
+\code{drop1()} (\code{anova(model)} gives \emph{sequential}
+(forward/``type I'') tests: \code{anova(model1,model2,model3)} compares
+a specific sequence of models); these use LRTs (if \code{test="Chisq"})
+or $F$ tests (if \code{test="F"}, which you should use when the
+dispersion parameter is estimated (Gaussian, Gamma, or quasi-likelihood models).
+
+\subsection{Interactions/marginality issues}
+
+You have to be very careful when testing main effects in the
+presence of interactions.  \code{drop1()} generally respects
+marginality, although you can do \verb+drop1(.~.)+ to get \code{drop1}
+to test \emph{all} the effects (i.e not respecting
+marginality).  (\cite{venables_exegeseslinear_1998}
+is a standard reference from one of the proponents
+of respecting marginality: see Section~5.)
+
+Your options with respect to marginality are:
+\begin{itemize}
+\item don't test main effects at all in the presence of interactions
+\item test main effects, but be very careful/aware that the meaning
+  of the main effects depends on the parameterization/contrasts used
+\item split the data set and run separate analyses for each category
+involved in the interaction
+\end{itemize}
+
+\subsection{Finite-size issues}
+
+In general LRTs are better than Wald tests, but even they make
+a (weaker) asymptotic assumption (not that the log-likelihood surface is
+quadratic, but that the deviance is $\chi^2$ distributed).  People
+generally ignore this problem since the number of observations is
+usually sufficiently large that this is a reasonable approximation,
+but [rarely used!] \emph{Bartlett corrections} \cite{McCullaghNelder1989,cordeiro_note_1998} 
+are one approach to correcting for this issue.
+
+If the dispersion parameter is estimated (rather than fixed, as it
+is for Poisson and binomial models), then we should use $F$ tests
+(``quasi-LRT'' for want of a better term) rather than $\chi^2$, because
+the deviance differences are now scaled by the ($\chi^2$-distributed)
+$\hat \phi$ (note that this does \emph{not} address the issue of whether
+the deviance itself is really $\chi^2$ distributed).
+
+\section{Bootstrapping}
+
+You can use bootstrap or parametric bootstrap samples to get more
+$p$-values/confidence intervals that account for : for example,
+nonparametric bootstrapping resamples the data with replacement
+(using \code{sample(.,replace=TRUE)}).
+
+Set up data and model:
+<<lizard_setup>>=
+data(lizards,package="brglm")
+lizards <- transform(lizards,
+                  gprop =grahami/(grahami+opalinus),
+                  N= grahami+opalinus)
+model1 <- glm(gprop~height+diameter+light+time,
+              family=binomial, weights=N, data=lizards)
+@ 
+
+A function to take a bootstrap sample of the data, refit the model,
+and extract the coefficients:
+
+<<lizard_bootfun>>=
+bootFun <- function() {
+    bootdat <- lizards[sample(nrow(lizards),replace=TRUE),]
+    newmodel <- update(model1,data=bootdat)
+    return(coef(newmodel))
+}
+@ 
+
+Use a \code{for} loop to compute the samples:
+<<lizard_bootsamp,cache=TRUE>>=
+nsamp <- 1000
+set.seed(101)
+bootParms <- matrix(NA,nrow=nsamp,ncol=length(coef(model1)))
+for (i in 1:nsamp) {
+    bootParms[i,] <- bootFun()
+}
+@
+
+There are a variety of different approaches for computing bootstrap
+confidence intervals, but a simple one is to find the quantiles
+of the bootstrapped coefficients.
+Get 2.5\% and 97.5\% quantiles
+of each column (\code{MARGIN=2} specifies columns rather than rows),
+and transpose the results (because \code{apply} always returns its
+results column-wise):
+<<boot_trans>>=
+ptab <- t(apply(bootParms,MARGIN=2,quantile,c(0.025,0.975)))
+rownames(ptab) <- names(coef(model1))
+print(ptab)
+@
+
+Compute two-sided $p$-values:
+<<boot_p>>=
+bootp <- apply(bootParms,
+      MARGIN=2,
+      function(x) 2*min(mean(x<0),mean(x>0)))
+cbind(coef(summary(model1)),bootp)
+@
+
+\bibliography{glmm}
+\end{document}
+
