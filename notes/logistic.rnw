@@ -1,0 +1,566 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{Logistic and binomial regression}
+\author{Ben Bolker}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+Version: \Sexpr{as.character(Sys.time())}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="tikz")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+@
+
+<<pkgs,message=FALSE>>=
+library(ggplot2)
+theme_set(theme_bw())
+library(grid)
+zmargin <- theme_update(panel.spacing=unit(0,"lines"))
+library(dotwhisker)
+library(descr)
+@ 
+
+
+\section{Computing model predictions}
+
+Set up an example to use:
+
+<<lizards>>=
+lizards <- read.csv("../data/lizards.csv")
+lizards <- transform(lizards,
+                     time=factor(time,levels=c("early","midday","late")))
+g1 <- glm(gfrac~height+diameter+light+time,
+          lizards,family=binomial,weight=N)
+@
+
+\paragraph{Predictions}
+
+Predictions are fairly easy: set up the new model matrix and multiply by
+coefficients, then compute the inverse link.  
+This is what \code{predict} does (use \code{type="response"} to
+get the back-transformed predictions).
+<<pred1>>=
+newdata <- with(lizards,
+                expand.grid(height=levels(height),
+                            diameter=levels(diameter),
+                            light=levels(light),
+                            time=levels(time)))
+## [-2] deletes the response variable; you could also use
+## formula(delete.response(terms(g1)))
+newX <- model.matrix(formula(g1)[-2],newdata)
+pred0 <- newX %*% coef(g1) ## log-odds
+pred <-  plogis(pred0)     ## probability
+head(c(pred))
+## or:
+head(predict(g1,newdata,type="response"))
+@
+
+If you use \code{predict}, keep in mind that \code{predict}
+produces predictions \emph{on the scale of the linear predictor}
+(\code{type="link"}) by default rather than on the scale of the original data
+(\code{type="response"}).
+
+\paragraph{Confidence intervals}
+Confidence intervals: get new model matrix and compute
+$X V X^T$ to get variances on the link-function scale. Then
+compute Normal CIs on the link scale, \emph{then} back-transform.
+Or use \code{se=TRUE} in \code{predict}.
+<<predci1>>=
+pvar <- newX %*% vcov(g1) %*% t(newX)
+pse <- sqrt(diag(pvar))
+@
+
+Or equivalently for any model type where \code{predict} has
+an \code{se.fit} argument:
+<<predci2>>=
+pse <- predict(g1,newdata=newdata,se.fit=TRUE)$se.fit
+lwr0 <- pred0-1.96*pse  ## or qnorm(0.025)
+upr0 <- pred0+1.96*pse  ## or qnorm(0.975)
+lwr <- plogis(lwr0)
+upr <- plogis(upr0)
+@
+
+Put the predictions and confidence intervals back into a
+data frame with the predictor variables:
+<<predci3>>=
+predFrame <- data.frame(newdata,gfrac=pred,lwr,upr)
+@
+
+Note:
+\begin{itemize}
+\item back-transforming the standard errors via a logistic usually doesn't make sense: if you want to back-transform them (approximately), you have to multiply them by $(d \mu/d \eta)$, i.e. use \code{dlogis}.
+\item if you use \code{response=TRUE} and \code{se.fit=TRUE},
+  R computes the standard errors, scales them as above, and uses them to
+  compute (approximate) \emph{symmetric} confidence intervals.  Unless your sample is very large and/or your predicted probabilities are near 0.5 (so the CIs don't get near 0 or 1), it's probably best to use the approach above
+\end{itemize}
+
+\paragraph{Getting CIs into \code{ggplot}}
+
+Compute a new data frame, then use \verb+geom_ribbon+ (need to
+set \code{alpha} by hand, and use \code{colour=NA}
+to suppress lines at the edges of the ribbon),
+unlike when using \verb+geom_smooth+).
+
+<<ggci1>>=
+gplot0 <- ggplot(lizards,aes(time,gfrac,colour=light))+
+    facet_grid(height~diameter,labeller=label_both)+geom_point(aes(size=N))+
+    scale_size_continuous(range=c(3,9))
+gplot0 + geom_line(data=predFrame,aes(group=light))+
+    geom_ribbon(data=predFrame,
+                aes(ymin=lwr,ymax=upr,group=light,fill=light),
+                colour=NA,
+                alpha=0.3)
+@
+
+\paragraph{CIs on nonlinear functions of parameters}
+
+Tricky. An example presented in
+\cite{dobson_introduction_2008},
+originally from \cite{bliss_calculation_1935}:
+
+<<getbeetle,cache=TRUE>>=
+beetle <- read.csv("../data/beetle2.csv",comment="#")
+## adjust percentages so number killed=integer
+beetle <- transform(beetle,
+    pct.kill=100/total*round(pct.kill*total/100))                 
+(pplot <- ggplot(beetle,aes(log10(dosage),pct.kill/100,colour=series))+
+    geom_point(aes(size=total))+
+    geom_smooth(method=glm,aes(weight=total),
+                family=binomial(link="probit")))
+@
+
+It looks like we can ignore the difference between the series \ldots
+
+<<beetle1>>=
+g2 <- glm(pct.kill/100~log10(dosage),
+          data=beetle,
+          family=binomial(link="probit"),
+          weight=total)
+@
+
+Suppose we're interested in the LD50, i.e. the dose required
+to kill 50\% of the population.  Since
+\begin{equation*}
+\begin{split}
+p = 0.5 & = \text{logistic}(\beta_0+\beta_1 x_{0.5}) \\
+ 0 & = \beta_0+\beta_1 x_{0.5} \\
+ x_{0.5} & = -\frac{\beta_0}{\beta_1}
+\end{split}
+\end{equation*}
+(the units work out correctly too)
+
+So the estimate is
+<<beetleest>>=
+cc <- coef(g2)
+ld50 <- -cc[1]/cc[2]
+@
+
+Double-check graphically:
+<<beetlegraph1>>=
+pplot+geom_vline(xintercept=ld50,linetype=3)
+@
+
+But what about the confidence intervals?
+
+
+\begin{itemize}
+\item delta method:
+If we want to compute the variance
+of $f(x,y,z)$ and ${\bm g}=(\frac{\partial f}{\partial x},
+\frac{\partial f}{\partial y},
+\frac{\partial f}{\partial z})$ then the variance is
+${\bm g} V {\bm g}^T$ (which reduces to 
+$\text{CV}^2(f(x,y)) = \text{CV}^2(x)+\text{CV}^2(y)$
+for the case of independent values when $f(x,y)=x/y$
+or $xy$):
+<<beetlegrad2>>=
+grad <- c(-1/cc[2],cc[1]/cc[2]^2)
+ld50_var <- t(grad) %*% vcov(g2) %*% grad
+ld50_se <- sqrt(ld50_var)
+deltaCI <- ld50+c(-1,1)*1.96*ld50_se
+pplot+geom_vline(xintercept=ld50,linetype=3)+
+    annotate("rect",
+           xmin=deltaCI[1],
+           xmax=deltaCI[2],
+           ymin=-Inf,
+           ymax=Inf,alpha=0.3,fill="blue",
+             colour=NA)
+@
+\item bootstrapping
+<<boot,cache=TRUE,dependson="getbeetle">>=
+bootres <- numeric(250)
+for (i in 1:250) {
+    bootdat <- beetle[sample(nrow(beetle),replace=TRUE),]
+    bootmodel <- update(g2,data=bootdat)
+    bootcc <- coef(bootmodel)
+    bootres[i] <- -bootcc[1]/bootcc[2]
+}
+hist(bootres,col="gray",breaks=50)
+bootCI <- quantile(bootres,c(0.025,0.975))
+@
+\item pseudo-Bayes: MVN sample from parameters
+<<pseudobayes>>=
+library(MASS)
+PBsamp <- mvrnorm(1000,mu=coef(g2),Sigma=vcov(g2))
+PBres <- -PBsamp[,1]/PBsamp[,2]
+hist(PBres,col="gray",breaks=50)
+PBCI <- quantile(PBres,c(0.025,0.975))
+@
+\end{itemize}
+
+In this case the results are all extremely similar:
+
+<<cfres>>=
+rbind(deltaCI,bootCI,PBCI)
+@
+
+\section{Logistic example}
+<<cusedat>>=
+## data from http://data.princeton.edu/wws509/datasets/cuse.dat
+try(download.file("http://data.princeton.edu/wws509/datasets/cuse.dat", 
+                  dest="../data/cuse.dat"),
+    silent=TRUE)
+cuse <- read.table("../data/cuse.dat",header=TRUE)
+@ 
+
+Add convenience variables (proportion and total in each group):
+change the \code{education} factor so that ``low'' rather
+than ``high'' is the baseline group:
+<<cuse2>>=
+cuse <- transform(cuse,
+                  propUsing=using/(using+notUsing),
+                  tot=using+notUsing,
+                  education=relevel(education,"low"))
+@ 
+
+\code{ggplot} tricks:
+\begin{itemize}
+  \item use \verb+label_both+ in the
+\verb+facet_grid+ specification to get the subplots labelled
+by their factor name as well as the level name
+\item use \code{aes(x=as.numeric(age))} to convince ggplot
+  to connect the factor levels on the $x$ axis with lines;
+  use \code{size=0.5} to make the lines a little skinnier
+  \end{itemize}
+  
+<<gg_cuse>>=
+(gg1 <- ggplot(cuse,aes(x=age,y=propUsing,size=tot,colour=wantsMore))+
+  facet_grid(.~education,labeller=label_both)+
+  geom_point(alpha=0.9)+
+  geom_line(aes(x=as.numeric(age)),size=0.5)+zmargin)
+@ 
+
+We could fit the three-way interaction, but it would be a bit
+silly because there would be as many parameters as observations
+(this is called a \emph{saturated model}.
+It would probably be more sensible to worry only about two-way interactions:
+<<cuse3way,message=FALSE,warning=FALSE>>=
+fit2 <- glm(cbind(using,notUsing)~(age+education+wantsMore)^2,
+            family=binomial,
+            data=cuse)
+library(aods3)
+gof(fit2)
+@
+
+There do indeed seem to be important two-way interactions:
+<<cusedrop>>=
+drop1(fit2,test="Chisq")
+@ 
+
+<<dw_cuse,message=FALSE>>=
+dwplot(fit2)
+@ 
+
+\section{Interpreting parameters}
+
+Based on this model, I'm going to demonstrate how to 
+answer a few specific questions:
+
+\begin{enumerate}
+\item what is the expected odds, and probability (according to the two-way interaction
+  model), that a woman in the \code{age=25-29}/\code{education=high}/\code{wantsMore=no}
+  category is using contraception?
+\item what is the difference, in terms of log-odds, odds, and probabilities of
+  contraceptive use, between
+  women with low and high educations who are  $<25$ and don't want more children?
+\item how would we find the \emph{average} difference between low- and high-education
+    women in the same terms?
+\end{enumerate}
+
+\begin{enumerate}
+\item To get the log-odds we need to add (intercept+[age effect]+[education effect]+
+  [age:education]). We \emph{don't} need to add [wantsMore] or the interactions involved
+  with [wantsMore] because we are in the reference level (no) for that factor.
+<<cuse_parms>>=
+(rcoefs <- coef(fit2)[c("(Intercept)","age25-29","educationhigh",
+                        "age25-29:educationhigh")])
+(logodds <- sum(rcoefs))
+(odds <- exp(logodds))  ## odds
+(prob <- odds/(1+odds)) ## probability
+## or
+(prob <- plogis(logodds))
+@ 
+Or
+<<cuse_parms2>>=
+newdata <- data.frame(age="25-29",education="high",wantsMore="no")
+predict(fit2,newdata)
+predict(fit2,newdata,type="response")
+@
+\item since ``don't want more children'' and ``age$<25$'' are baseline levels and we
+  are using treatment contrasts, we just need to look at the effects
+  of education:
+<<cuse_parms3>>=
+(logodds <- coef(fit2)["educationhigh"])
+(odds <- exp(logodds))
+@
+The tricky part here is that \emph{we can't calculate the difference in probabilities
+  from the difference coefficients alone}; we need to go back and compute the individual probabilities.
+<<cuse_parms4>>=
+(lowed_logodds <- coef(fit2)["(Intercept)"])
+(lowed_prob <- plogis(lowed_logodds))
+(highed_logodds <- sum(coef(fit2)[c("(Intercept)","educationhigh")]))
+(highed_prob <- plogis(highed_logodds))
+(probdiff <- highed_prob-lowed_prob)
+@ 
+\item Switch to sum contrasts:
+<<cuse_parms5>>=
+options(contrasts=c("contr.sum","contr.poly"))
+## re-fit the same model:
+fit2S <- glm(cbind(using,notUsing)~(age+education+wantsMore)^2,
+            family=binomial,
+            data=cuse)
+@ 
+We \emph{double} the difference between the grand mean and low-education
+women to get the overall difference between low- and high-education women:
+<<cuse_parms6>>=
+(logodds_eddiff <- abs(2*coef(fit2S)["education1"]))
+## can calculate odds as above ...
+@ 
+To get the average log-odds for low-education women:
+<<cuse_parms7>>=
+(logodds_loed <- sum(coef(fit2S)[c("(Intercept)","education1")]))
+@ 
+
+To get the average log-odds for high-education women
+we have to \emph{subtract} the coefficient:
+<<cuse_parms8>>=
+(logodds_hied <- coef(fit2S)["(Intercept)"]-coef(fit2S)["education1"])
+@ 
+From here we can calculate the odds, probabilities, difference in 
+probabilities as above \ldots
+<<cuse_parms9>>=
+options(contrasts=c("contr.treatment","contr.poly")) ## restore defaults
+@ 
+\end{enumerate}
+\section{Wald tests}
+
+\emph{Wald tests} are based on the local curvature of
+the likelihood surface, and are the quickest but least
+reliable tests of significance.  They are \emph{marginal}
+(``type III'') tests, so they test all effects in the
+presence of all other effects (including interactions).
+
+<<wald1>>=
+summary(fit2)
+@ 
+
+This says that the log-odds of contraceptive use in the
+intercept (age$<25$, low) group is
+significantly different from zero (which means significantly
+different from probability=0.5); as usual this is not
+particularly interesting.
+
+The significant values for the main effect here
+are for the parameters in the presence of the other
+effects, which means they are tests of differences with
+respect to age in the baseline (low-education) group.
+The interpretation of these main effects depends on the
+contrasts, however.
+
+The other disadvantage of \code{summary}, besides its
+using Wald tests, is that it gives separate tests of
+each parameter (contrast), rather than a test of the overall
+effect of the factor (this only matters if the factor
+has more than two levels).  While we can construct
+Wald $F$ statistics that test the combined effect of
+several parameters, we might as well use a more
+accurate likelihood ratio test, based on comparing
+the goodness of fit (deviance) of two nested models.
+
+We have two choices: \code{drop1} and \code{anova}.
+
+\code{drop1} tries dropping each term out of the model,
+but it respects marginality, so it does not try to
+drop main effects if there is an interaction term in the
+model.  If we use \code{test="Chisq"} it gives us a likelihood
+ratio test (otherwise it only provides the difference and
+deviance and an AIC value, but not a significance test):
+<<drop1ex>>=
+drop1(fit2,test="Chisq")
+@ 
+
+The interaction term is weakly significant here.  I am
+a little bit nervous about dropping it, because (among
+other things) the magnitudes of the interaction terms
+are not that much smaller than those  of the main effects:
+
+<<dw_cuse2,fig.keep="last">>=
+dwplot(fit2)
+@ 
+
+If we use \code{anova} it gives us a \emph{sequential}
+analysis of deviance (analogous to an analysis of variance):
+we again need to specify \code{test="Chisq"}:
+
+<<cuse_anova>>=
+anova(fit2,test="Chisq")
+@ 
+
+The significance of age quoted here is for age
+alone; for education, conditional on age being present
+in the model; for the interaction, conditional on
+both (it is identical to the result we got above for
+\code{drop1}).
+
+We would get the same result (for the third time) if we explicitly dropped
+the interaction and did an \code{anova} test between
+the two models:
+<<cuse_anova2>>=
+fit3 <- update(fit2,.~.-age:education)
+anova(fit3,fit2,test="Chisq")
+@ 
+
+There are three ways to proceed with this analysis:
+\begin{itemize}
+\item if we are not really interested in the interaction
+  at all we could split the data into two sets and analyze
+  the low-education and high-education data separately;
+\item we could drop the interaction (i.e. assume that age
+  and education do \emph{not} interact);
+\item we could set sum-to-zero contrasts and do ``type III''
+  analyses, estimating the average effect of age across
+  education levels and vice versa.
+\end{itemize}
+
+Method 2: drop the interaction.  We've already fitted
+the model (\code{fit2}), now we just have to look at it:
+
+Once we have gotten rid of the interaction, the effect
+of education appears significant:
+<<cuse_drop2>>=
+drop1(fit2,test="Chisq")
+@ 
+<<cuse_dwagain,fig.keep="last">>=
+dwplot(fit2)
+@ 
+
+
+<<cuse_sum>>=
+options(contrasts=c("contr.sum","contr.poly"))
+fit1S <- glm(cbind(using,notUsing)~age*education,family=binomial,
+            data=cuse)
+@ 
+
+The main effects  
+parameters now represent averages:
+for example, \code{age1} represents 
+the difference between age $(<25)$
+and age $(25--29)$ across both education levels \ldots
+
+<<cuse_sum2>>=
+summary(fit1S)
+@ 
+
+We can use the \verb+.~.+ trick to get \code{drop1} to
+test all the terms in the model (not just the marginal ones):
+<<cuse_sumdrop>>=
+drop1(fit1S,test="Chisq",.~.)
+@ 
+
+<<cuse_sumdw,fig.keep="last">>=
+dwplot(fit1S)
+@ 
+
+\code{confint} gives us confidence intervals (95\% by
+default) on the individual parameters.  \code{confint.default}
+constructs Wald intervals; \code{confint} constructs likelihood
+profile intervals, which are more accurate --- but you can see
+in this case that they're hardly different:
+<<cuse_ci>>=
+confint.default(fit1S)
+confint(fit1S)
+@ 
+They're likely to be most different for small data sets
+and data sets with small numbers of samples per observation:
+although this data set is only 16 rows, it represents a sample
+of 1607 total individuals (\verb+sum(cuse$tot)+).
+
+
+\section{pseudo-$R^2$ measures}
+
+The \href{http://statistics.ats.ucla.edu/stat/mult_pkg/faq/general/Psuedo_RSquareds.htm}{UCLA statistics site} has a very nice description of pseudo-$R^2$ measures.
+
+\begin{itemize}
+\item fraction of variance explained
+\item model improvement
+\end{itemize}
+
+\begin{itemize}
+\item fraction of deviance explained: (dev(null)-dev(model))/dev(null)
+  (``McFadden''):
+<<mcfadden>>=
+with(g1,1-deviance/null.deviance)
+@ 
+\item correlation (``Efron''):
+<<efron>>=
+cor(lizards$gfrac,predict(g1,type="response"))^2
+@ 
+\item Cox and Snell: average deviance explained
+$$
+1 - \left(L(\text{null})/L(\text{full})\right)^{2/n}
+$$
+(i.e. look at proportion on the likelihood scale, not the log-likelihood scale)
+\item Nagelkerke: Cox and Snell, adjusted to max=1  
+\end{itemize}
+
+<<coxsnell,message=FALSE>>=
+descr::LogRegR2(g1)
+@ 
+
+\bibliography{../glmm}
+\end{document}
+
