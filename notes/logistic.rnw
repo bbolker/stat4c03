@@ -16,6 +16,7 @@
 \newcommand{\bbeta}{{\bm \beta}}
 \newcommand{\bmu}{{\bm \mu}}
 \newcommand{\X}{\mathbf X}
+\newcommand{\forkpath}{\raisebox{-3pt}{\includegraphics[width=0.4cm]{../pix/fp_icon.png}}}
 
 \title{Logistic and binomial regression}
 \author{Ben Bolker}
@@ -32,17 +33,83 @@ Please share \& remix noncommercially,
 mentioning its origin.}
 \end{minipage}
 
-Version: \Sexpr{as.character(Sys.time())}
-
-<<opts,echo=FALSE,message=FALSE>>=
+<<opts,echo=FALSE,message=FALSE,include=FALSE>>=
 library("knitr")
+do_tikz <- TRUE
 opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
-               dev="tikz")
+               error=TRUE)
+if (do_tikz) {
+ opts_chunk$set(dev="tikz")
+}
 knit_hooks$set(basefig=function(before, options, envir) {
                    if (before) {
                        par(bty="l",las=1)
                    } else { }
                })
+@
+
+\section{modeling}
+
+\subsection{data analysis road map}
+
+\vskip5pt
+\hrule
+\vskip5pt
+1. figure out the (subject-area) question \\
+2. design experiment/data collection (power analysis; simulation)
+\vskip5pt
+\hrule
+\vskip5pt
+3. \emph{collect data} \\
+\vskip5pt
+\hrule
+\vskip5pt
+4. understand the data \\
+5. specify the model; \emph{write it down!}
+\vskip5pt
+\hrule
+\vskip5pt
+6. inspect data (Q/A) (return to 5? \forkpath) \\
+7. fit model \\
+8. graphical diagnostics (return to 5? \forkpath) \\
+9. interpret parameters; inference; plot results
+\hrule
+\vskip10pt
+
+\textbf{\emph{Alternatively}}
+
+\includegraphics{../pix/tidy.png}
+{\tiny \url{https://jules32.github.io/2016-07-12-Oxford/dplyr_tidyr/}}
+
+also: 
+
+\includegraphics{../pix/mn_model.png}
+\citep{McCullaghNelder1989}
+
+These are great but \emph{doesn't address the snooping problem}
+
+\section{basics}
+
+In principle can use any smooth function from $(0,1) \to \mathbb{R}$ as the link function
+\begin{itemize}
+  \item \emph{logistic} regression: binary data with a logit link (inverse-link=logistic)
+  \item \emph{binomial} (or \emph{aggregated binomial} regression: binomial data (maybe logit link, maybe other)
+  \item \emph{probit regression}: probit link
+\end{itemize}
+Binary data and aggregated ($N>1$ data) are handled slightly differently.
+
+<<problog,echo=FALSE,message=FALSE,fig.width=6,fig.height=4>>=
+library(directlabels)
+linkdata <- data.frame(x=seq(-4,4,length=101))
+linkvec <- c("logit","probit","cloglog")
+scale <- c(1,sqrt(3)/pi,1)
+for (i in 1:3) {
+    linkdata[[linkvec[i]]] <- make.link(linkvec[i])$linkinv(linkdata$x*scale[i])
+}
+linkdata <- tidyr::gather(linkdata,invlink,prob,-x)
+ggplot(linkdata,aes(x,prob,colour=invlink))+
+    geom_line()+
+   scale_colour_brewer(palette="Dark2")    
 @
 
 <<pkgs,message=FALSE>>=
@@ -51,7 +118,60 @@ theme_set(theme_bw())
 library(grid)
 zmargin <- theme_update(panel.spacing=unit(0,"lines"))
 library(dotwhisker)
-library(descr)
+library(descr) ## for R^2 measures
+library(aods3)  ## for overdispersion 
+@ 
+
+\section{Contraception data example}
+
+<<contrac1,message=FALSE>>=
+library(MEMSS)
+data("Contraception",package="mlmRev")
+head(Contraception)
+cc <- transform(Contraception,
+                use_n=as.numeric(use)-1,
+                age_cat=cut(age,breaks=age_breaks))
+@ 
+
+<<eval=FALSE>>=
+gg0 <- ggplot(cc,aes(age,use_n,colour=urban))+
+    stat_sum(alpha=0.5)+facet_wrap(~livch,labeller=label_both)
+gg0+geom_smooth()
+gg0+geom_smooth(method="gam",
+                formula=y~s(x,k=20),
+                method.args=list(family=binomial))
+@ 
+
+Alternative smoothing: binning
+<<eval=FALSE>>=
+age_breaks <- seq(-15,20,by=5)
+age_mids <- (age_breaks[-1]+age_breaks[-length(age_breaks)])/2
+sumfun <- function(use) {
+    prop <- mean(use)
+    n <- length(use)
+    se <- sqrt(prop*(1-prop)/n)  ## approx binomial CIs
+    c(prop=prop,n=n,se=se)
+}
+cc_agg <- aggregate(use_n~age_cat+urban+livch,
+          data=cc,
+          FUN=sumfun)
+## ugh!
+cc_agg[,c("prop","n","se")] <- cc_agg$use_n
+cc_agg$age_mid <- age_mids[as.numeric(cc_agg$age_cat)]
+gg0+geom_pointrange(data=cc_agg,
+                    aes(x=age_mid,
+                        y=prop,
+                        ymin=prop-2*se,
+                        ymax=prop+2*se,
+                        size=n),
+                    alpha=0.5)+
+    scale_size(range=c(1,3))
+@ 
+
+Fit the model: quadratic with all interactions
+
+<<>>=
+
 @ 
 
 
@@ -160,7 +280,7 @@ beetle <- transform(beetle,
 (pplot <- ggplot(beetle,aes(log10(dosage),pct.kill/100,colour=series))+
     geom_point(aes(size=total))+
     geom_smooth(method=glm,aes(weight=total),
-                family=binomial(link="probit")))
+                method.args=list(family=binomial(link="probit"))))
 @
 
 It looks like we can ignore the difference between the series \ldots
@@ -198,7 +318,7 @@ But what about the confidence intervals?
 
 
 \begin{itemize}
-\item delta method:
+\item \textbf{delta method}:
 If we want to compute the variance
 of $f(x,y,z)$ and ${\bm g}=(\frac{\partial f}{\partial x},
 \frac{\partial f}{\partial y},
@@ -210,7 +330,7 @@ or $xy$):
 <<beetlegrad2>>=
 grad <- c(-1/cc[2],cc[1]/cc[2]^2)
 ld50_var <- t(grad) %*% vcov(g2) %*% grad
-ld50_se <- sqrt(ld50_var)
+ld50_se <- c(sqrt(ld50_var)) ## c() converts from matrix to vector (= scalar)
 deltaCI <- ld50+c(-1,1)*1.96*ld50_se
 pplot+geom_vline(xintercept=ld50,linetype=3)+
     annotate("rect",
@@ -249,11 +369,14 @@ rbind(deltaCI,bootCI,PBCI)
 @
 
 \section{Logistic example}
-<<cusedat>>=
+
+<<cusedat,cache=TRUE>>=
 ## data from http://data.princeton.edu/wws509/datasets/cuse.dat
-try(download.file("http://data.princeton.edu/wws509/datasets/cuse.dat", 
-                  dest="../data/cuse.dat"),
-    silent=TRUE)
+if (FALSE) {
+    try(download.file("http://data.princeton.edu/wws509/datasets/cuse.dat", 
+                      dest="../data/cuse.dat"),
+        silent=TRUE)
+}
 cuse <- read.table("../data/cuse.dat",header=TRUE)
 @ 
 
