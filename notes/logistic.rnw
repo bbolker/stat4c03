@@ -170,9 +170,15 @@ gg0+geom_pointrange(data=cc_agg,
 
 Fit the model: quadratic with all interactions
 
-<<>>=
-
+<<eval=FALSE>>=
+glm(...)
 @ 
+
+Explore diagnostics (\code{plot()}; \code{DHARMa::simulateResiduals()};
+\code{arm::binnedplot}; \code{mgcv::qq.gam}).
+
+Explore parameters.
+
 
 
 \section{Computing model predictions}

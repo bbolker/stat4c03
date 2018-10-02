@@ -21,7 +21,7 @@
 \author{Ben Bolker}
 \begin{document}
 \maketitle
-\bibliographystyle{chicago}
+\bibliographystyle{apa}
 
 \includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
 \begin{minipage}[b]{3in}
@@ -180,7 +180,7 @@ quadratic, but that the deviance is $\chi^2$ distributed).  People
 generally ignore this problem since the number of observations is
 usually sufficiently large that this is a reasonable approximation,
 but [rarely used!] \emph{Bartlett corrections} \cite{McCullaghNelder1989,cordeiro_note_1998} 
-are one approach to correcting for this issue.
+are one approach to dealing with this issue.
 
 If the dispersion parameter is estimated (rather than fixed, as it
 is for Poisson and binomial models), then we should use $F$ tests
@@ -191,8 +191,9 @@ the deviance itself is really $\chi^2$ distributed).
 
 \section{Bootstrapping}
 
-You can use bootstrap or parametric bootstrap samples to get more
-$p$-values/confidence intervals that account for : for example,
+You can use bootstrap or parametric bootstrap samples to get
+$p$-values/confidence intervals that account for finite-size
+effects: for example, 
 nonparametric bootstrapping resamples the data with replacement
 (using \code{sample(.,replace=TRUE)}).
 
@@ -236,17 +237,44 @@ and transpose the results (because \code{apply} always returns its
 results column-wise):
 <<boot_trans>>=
 ptab <- t(apply(bootParms,MARGIN=2,quantile,c(0.025,0.975)))
-rownames(ptab) <- names(coef(model1))
+rownames(ptab) <- names(coef(model1))  ## assign row names, for interpretability
 print(ptab)
 @
 
-Compute two-sided $p$-values:
+Compute two-sided $p$-values (twice the \emph{smaller} of the two tails):
 <<boot_p>>=
 bootp <- apply(bootParms,
       MARGIN=2,
       function(x) 2*min(mean(x<0),mean(x>0)))
 cbind(coef(summary(model1)),bootp)
 @
+
+Compare Wald, likelihood ratio, and bootstrap confidence intervals:
+
+<<conf_comp,echo=FALSE,fig.height=3.5,fig.width=6,message=FALSE>>=
+conf_LR <- confint(model1)
+conf_Wald <- stats::confint.default(model1)
+conf_boot <- ptab
+conf_list <- list(LR=conf_LR,Wald=conf_Wald,boot=conf_boot)
+for (i in 1:3) {
+    conf_list[[i]] <- as.data.frame(conf_list[[i]])
+    conf_list[[i]]$term <- rownames(conf_list[[i]])
+    names(conf_list[[i]]) <- c("lwr","upr","term")
+}
+conf_all <- dplyr::bind_rows(conf_list,.id="method")
+ggplot(conf_all, aes(x=term, ymin=lwr, ymax=upr, colour=method)) +
+    geom_linerange(position=position_dodge(width=0.5))+
+    labs(x="")+
+    coord_flip()
+
+@ 
+
+You can also use \code{car::Boot()} to do this more automatically:
+
+<<carboot,cache=TRUE,message=FALSE>>=
+bb <- car::Boot(model1)
+confint(bb)
+@ 
 
 \bibliography{glmm}
 \end{document}
