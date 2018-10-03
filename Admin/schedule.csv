@@ -3,9 +3,9 @@
 2,"10, 12, 13 Sep","distributions and estimation; model fitting; design matrices and contrasts","HW 1 (Wed Sep 12)",
 3,"17, 19, 20 Sep","Exponential family and GLMs; estimation",,"Faraway chap 8.1-8.4"
 4,"24, 26, 27 Sep","Inference","HW 2 (Wed Sep 26)",
-5,"1, 3, 4 Oct","Logistic regression",,
+5,"1, 3, 4 Oct","Logistic regression",,"Faraway chaps 2-3"
 "","fall break",,,
-6,"15, 17, 19 Oct","Count data","HW 3 (Mon Oct 15)"
+6,"15, 17, 19 Oct","Count data","HW 3 (Weds Oct 17)"
 7,"22, 24, 25 Oct","Extensions: ordinal data, zero-inflation, etc.","midterm test (Mon Oct 22)"
 8,"29, 31 Oct, 1 Nov","Mixed models (I)","HW 4 (Mon Oct 29)"
 9,"5, 7, 8 Nov","Mixed models (II)"

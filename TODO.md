@@ -3,7 +3,6 @@
 - add cloglog?
 
 - fix parameterization notes
-- hw rubrics
 
 Logistic examples
 gg0 <- ggplot(Contraception,aes(age,as.numeric(use)-1,colour=urban))+
@@ -25,6 +24,7 @@ A progress bar tracks the transfer platform specifically:
 
 A progress bar tracks the transfer:
 
+Contraception data, original source?
 
 https://rdrr.io/cran/epiDisplay/man/bang.html
 http://data.princeton.edu/pop510/bangladesh.html
