@@ -18,7 +18,7 @@
 \newcommand{\X}{\mathbf X}
 \newcommand{\forkpath}{\raisebox{-3pt}{\includegraphics[width=0.4cm]{../pix/fp_icon.png}}}
 
-\title{Logistic and binomial regression}
+\title{Logistic regression}
 \author{Ben Bolker}
 \begin{document}
 \maketitle
@@ -35,9 +35,9 @@ mentioning its origin.}
 
 <<opts,echo=FALSE,message=FALSE,include=FALSE>>=
 library("knitr")
-do_tikz <- FALSE
+do_tikz <- TRUE
 opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
-               error=TRUE)
+               error=FALSE)
 if (do_tikz) {
  opts_chunk$set(dev="tikz")
 }
@@ -127,6 +127,7 @@ library(aods3)  ## for overdispersion
 library(arm)    ## binnedplot
 library(dplyr)  ## tidyverse!
 library(DescTools)
+library(broom)  ## for augment()
 @ 
 
 \section{Contraception data example}
@@ -184,10 +185,8 @@ Bin more coarsely:
 ## specify categories; compute midpoints as well
 age_breaks <- seq(-15,20,by=5)
 age_mids <- (age_breaks[-1]+age_breaks[-length(age_breaks)])/2
-            ## discrete age categories            
-            age_cat=cut(age,breaks=age_breaks))
-)
 cc_agg <- (cc
+    ## discrete age categories            
     %>% mutate(age_cat=cut(age,breaks=age_breaks))
     %>% group_by(age_cat,urban,livch) 
     %>% summarise(
@@ -205,7 +204,8 @@ Plot:
 <<binplot>>=
 ## use numeric response rather than Y/N response
 gg0B <- ggplot(cc,aes(age,use_n,colour=urban))+
-    stat_sum(alpha=0.5)+facet_wrap(~livch,labeller=label_both)
+    stat_sum(alpha=0.5)+facet_wrap(~livch,labeller=label_both)+
+    labs(y="prob of contraceptive use")
 gg_bin <- gg0B+geom_pointrange(data=cc_agg,
                     aes(x=age_mid,
                         y=prop,
@@ -235,13 +235,26 @@ model1 <- glm(use_n ~ urban*(age+I(age^2))*livch,
 Explore diagnostics (\code{plot()}; \code{DHARMa::simulateResiduals()};
 \code{arm::binnedplot}; \code{mgcv::qq.gam}).
 
+Q-Q plot is useless for logistic regression; we know that the responses are conditionally Bernoulli-distributed!
 \textbf{Quantile residuals} \cite{ben_quantilequantile_2004,hartig_dharma_2018} overcome many of the problems of GLM diagnostics, at the price of lots more computation.
 
-<<diags,eval=FALSE>>=
-plot(model1)  ## ugh!
+% dev="pdf" to avoid tikz problems with underscore 
+% in default sub-caption to plot.lm() ...
+<<diags,cache=TRUE,fig.keep="none",dev="pdf",message=FALSE>>=
+## default plots: ugh!
+plot(model1) 
+## binned plot
 arm::binnedplot(fitted(model1),residuals(model1))
-DHARMa::simulateResiduals(model1,plot=TRUE)
+## smoothing via ggplot
+ggplot(broom::augment(model1),aes(.fitted,.resid)) +
+    geom_point() + geom_smooth()
+## Q-Q of quantile residuals
 mgcv::qq.gam(model1,pch=1)
+## ... simulated quantil residuals ...
+mgcv::qq.gam(model1,pch=1,rep=1000)
+## alternative simulated residuals
+plot(DHARMa::simulateResiduals(model1),pch=".")
+
 @ 
 
 If you really need a global goodness-of-fit test:
@@ -267,11 +280,11 @@ The \href{http://statistics.ats.ucla.edu/stat/mult_pkg/faq/general/Psuedo_RSquar
 \item fraction of deviance explained: (dev(null)-dev(model))/dev(null)
   (``McFadden''):
 <<mcfadden>>=
-with(model3,1-deviance/null.deviance)
+with(model1,1-deviance/null.deviance)
 @ 
 \item correlation (``Efron''):
 <<efron>>=
-cor(cc$use_n,predict(model3,type="response"))^2
+cor(cc$use_n,predict(model1,type="response"))^2
 @ 
 \item Cox and Snell: average deviance explained
 $$
@@ -282,13 +295,13 @@ $$
 \end{itemize}
 
 <<coxsnell,message=FALSE>>=
-descr::LogRegR2(model3)
+descr::LogRegR2(model1)
 @ 
 
 \subsection{Plot predictions}
 
-<<warning=FALSE>>=
-gg_bin+geom_smooth(method="glm",
+<<plot_pred,fig.keep="none",warning=FALSE>>=
+gg_bin + geom_smooth(method="glm",
                    method.args=list(family=binomial),
                    formula=y~x+I(x^2)
                    )
@@ -300,27 +313,25 @@ Confidence intervals: get new model matrix and compute
 $X V X^T$ to get variances on the link-function scale. Then
 compute Normal CIs on the link scale, \emph{then} back-transform.
 Or use \code{se=TRUE} in \code{predict}.
-<<predci1>>=
+<<predci1,eval=FALSE>>=
 pvar <- newX %*% vcov(g1) %*% t(newX)
 pse <- sqrt(diag(pvar))
 @
 
 Or equivalently for any model type where \code{predict} has
 an \code{se.fit} argument:
-<<predci2>>=
-pse <- predict(g1,newdata=newdata,se.fit=TRUE)$se.fit
-lwr0 <- pred0-2*pse  ## or qnorm(0.025)
-upr0 <- pred0+2*pse  ## or qnorm(0.975)
-lwr <- plogis(lwr0)
-upr <- plogis(upr0)
+<<predci2,eval=FALSE>>=
+pse <- predict(model,newdata=newdata,se.fit=TRUE)$se.fit
+lwr <- plogis(pred0-2*pse)  ## or qnorm(0.025)
+upr <- plogis(pred0+2*pse)  ## or qnorm(0.975)
 @
 
 Note:
 \begin{itemize}
-\item back-transforming the standard errors via a logistic usually doesn't make sense: if you want to back-transform them (approximately), you have to multiply them by $(d \mu/d \eta)$, i.e. use \code{dlogis}.
+\item using the inverse-link function to back-transform the \emph{standard errors} never (??) makes sense: if you want to back-transform them (approximately), you have to multiply them by $(d \mu/d \eta)$, i.e. use \code{dlogis} or the \code{mu.eta} component of \verb!model$family!
 \item if you use \code{response=TRUE} and \code{se.fit=TRUE},
   R computes the standard errors, scales them as above, and uses them to
-  compute (approximate) \emph{symmetric} confidence intervals.  Unless your sample is very large and/or your predicted probabilities are near 0.5 (so the CIs don't get near 0 or 1), it's probably best to use the approach above
+  compute (approximate) \emph{symmetric} confidence intervals.  Unless your sample is very large and/or your predicted probabilities are near 0.5 (so the CIs don't approach 0 or 1), it's probably best to use the approach above
 \end{itemize}
 
 <<pframe>>=
@@ -342,14 +353,18 @@ pp1 <- predfun(model1)
 
 \subsection{Posterior predictive simulations}
 
-Pick a summary statistic that matters (e.g.
+Pick a summary statistic that matters (e.g. the proportion
+of urban women with no living children whose age is within
+1 year of the mean who are using contraception) and simulate
+predictions from the model: see how they match the observed
+value.  Can we reject the null hypothesis that the model is OK?
 
 <<ppred>>=
 ppfun <- function(dd) {
     w <- which(dd$urban=="Y" & dd$livch=="0" & abs(dd$age)<1)
     return(mean(dd$use_n[w]))
 }
-ppfun(cc)
+ppfun(cc)  ## observed value from data
 ss <- simulate(model1,1000)
 simres <- rep(NA,1000)
 newcc <- cc
@@ -388,12 +403,18 @@ anova(model1,model2,model3,test="Chisq")
 @ 
 
 
-\subsection{}
+\subsection{Inference on the selected model}
 
-<<modeltests,message=FALSE>>=
+
+<<modeltests,message=FALSE,warning=FALSE>>=
 car::Anova(model3)
 drop1(model3,test="Chisq")
 @ 
+
+Coefficient or ``dot-whisker'' plots
+of the reduced model, with and without standardization
+by $2\sigma$ of the predictors:
+
 <<dwplot>>=
 dw1 <- dwplot(model3)+geom_vline(xintercept=0,lty=2)
 dw2 <- dwplot(model3,by_2sd=FALSE)+geom_vline(xintercept=0,lty=2)
@@ -408,21 +429,114 @@ dw_comb <- dwplot(mod_list)+ geom_vline(xintercept=0,lty=2)
 <<compare_preds>>=
 pp_list <- lapply(mod_list,predfun)
 pp_frame <- dplyr::bind_rows(pp_list,.id="method")
-gg_compare_pred <- gg0 + geom_line(data=pp_frame,
+gg_compare_pred <- gg0B + geom_line(data=pp_frame,
                                    aes(linetype=method))
+pp3 <- pp_list[[3]]
+gg_model3 <- gg0B + geom_line(data=pp3)+
+    geom_ribbon(data=pp3,aes(ymin=lwr,ymax=upr,fill=urban),colour=NA,alpha=0.2)
 @ 
 
 <<coefs>>=
 summary(model3)
 @ 
 
+The \code{emmeans} package has a whole bunch of convenience
+functions for computing and plotting ``expected marginal means'',
+which are the generalization of ``least-squares means'', i.e. 
+effects averaged across categories in various sensible ways:
+
 <<emmeansplot,warning=FALSE>>=
 plot(emmeans::emmeans(model3,~livch*urban,type="response"))
 @ 
 
-\subsection{Confidence intervals on predictions etc.}
+\subsection{Confidence intervals on nonlinear functions of predictions}
 
-(delta method; bootstrap; simulation)
+Suppose we're interested in some value that can be computed
+as a \emph{nonlinear} function of the parameters.  For example,
+suppose want to estimate the age at which contraceptive use peaks,
+and the level of contraception use at that point.
+If a quadratic is parameterized as $\beta_0+\beta_1 x + \beta_2 x^2$, then
+the critical values occurs where $\beta_1 + 2 \beta_2 \hat x = 0 \to \hat x=-\beta_1/(2\beta_2)$, and the value is $\beta_0 -\beta_1^2/(2\beta_2) + \beta_2 (\beta_1^2/(4 \beta_2^2)) = \beta_0 - \beta_1^2/(4 \beta_2)$. (Since the link function if monotonic, we don't have to
+worry about that nonlinearity for these purposes.) Since we have only an additive model, 
+
+<<peak_est>>=
+cc3 <- as.list(coef(model3))
+(use_peak <- with(cc3,
+                  c(-age/(2*`I(age^2)`),
+                    plogis(`(Intercept)` - age^2/(4*`I(age^2)`)))))
+@
+So the peak is half a year above the mean age, at about 
+\Sexpr{round(100*use_peak[2])}\% use
+(note that peak height varies among categories;
+this is the prediction for the baseline category \{urban, livch=0\}).
+These numbers seem reasonable based on what we've seen so far,
+but checking graphically:
+<<peak_graph1>>=
+gg_model3+
+    geom_vline(xintercept=use_peak[1],linetype=3)+
+    geom_hline(yintercept=use_peak[2],linetype=3)
+@
+
+Getting the confidence intervals on these values is harder \ldots
+
+\begin{itemize}
+\item \textbf{delta method}:
+If we want to compute the variance on the peak location?
+of $f(x,y,z)$ and ${\bm g}=(\frac{\partial f}{\partial x},
+\frac{\partial f}{\partial y},
+\frac{\partial f}{\partial z})$ then the variance is
+${\bm g} V {\bm g}^T$ (which reduces to 
+$\text{CV}^2(f(x,y)) = \text{CV}^2(x)+\text{CV}^2(y)$
+for the case of independent values when $f(x,y)=x/y$
+or $xy$):
+<<peakgrad2>>=
+grad <- rep(0,length(coef(model3)))
+names(grad) <- names(coef(model3))
+## deriv of b1/(2*b2) = {1/(2*b2), -b1/b2^2}
+grad[c("age","I(age^2)")] <- 
+    with(cc3,c(1/(2*`I(age^2)`),-age/`I(age^2)`^2))
+peak_var <- t(grad) %*% vcov(model3) %*% grad
+peak_se <- c(sqrt(peak_var)) ## c() converts from matrix to vector (= scalar)
+deltaCI <- use_peak[1]+c(-1,1)*2*peak_se
+@ 
+
+Plot:
+<<plot_peakgrad2>>=
+gg_model3+geom_vline(xintercept=use_peak[1],linetype=3)+
+    annotate("rect",
+           xmin=deltaCI[1],
+           xmax=deltaCI[2],
+           ymin=-Inf,
+           ymax=Inf,alpha=0.3,fill="blue",
+             colour=NA)
+@
+\item bootstrapping
+<<boot,cache=TRUE>>=
+bootres <- numeric(250)
+for (i in 1:250) {
+    bootdat <- cc[sample(nrow(cc),replace=TRUE),]
+    bootmodel <- update(model3,data=bootdat)
+    bootcc <- coef(bootmodel)
+    bootres[i] <- with(as.list(bootcc),c(age/(2*`I(age^2)`)))
+}
+hist(bootres,col="gray",breaks=50)
+bootCI <- quantile(bootres,c(0.025,0.975))
+@
+\item pseudo-Bayes: MVN sample from parameters
+<<pseudobayes>>=
+library(MASS)
+PBsamp <- as.data.frame(mvrnorm(1000,mu=coef(model3),Sigma=vcov(model3)))
+PBres <- with(PBsamp,c(age/(2*`I(age^2)`)))
+hist(PBres,col="gray",breaks=50)
+PBCI <- quantile(PBres,c(0.025,0.975))
+@
+\end{itemize}
+
+In this case the results are all extremely similar:
+
+<<cfres>>=
+rbind(deltaCI,PBCI,bootCI)
+@
 
 \bibliography{../glmm}
 \end{document}
