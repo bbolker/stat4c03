@@ -5,7 +5,7 @@ pdfnotes += intro distribs contrasts glm_deriv glm_comp inference logistic
 htmlnotes += modeling_inference
 rmdnotes += intro distribs modeling_inference
 rnwnotes += contrasts glm_deriv glm_comp inference logistic
-hw += hw1 hw2 hw1_comments
+hw += hw1 hw2 hw1_comments hw3
 
 adminhtml := $(admin:%=Admin/%.html)
 nnrmd := $(rmdnotes:%=notes/%.rmd)
