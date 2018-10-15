@@ -1,0 +1,21 @@
+## from Bliss 1935 Annals of Applied Biology, Table IV
+## "... kills of Tribolium confusum following 5-hour exposures
+## to known concentrations of carbon disulphide. ... Data
+## from Strand, A.L. 1930 Ind Eng Chem Analyt Ed II, 4
+series,total,dosage,pct.kill
+I,29,49.06,6.9
+I,30,52.99,23.3
+I,28,56.91,32.9
+I,27,60.84,51.9
+I,30,64.76,76.7
+I,31,68.69,93.6
+I,30,72.61,96.7
+I,29,76.54,100
+II,30,49.06,13.3
+II,30,52.99,20.0
+II,34,56.91,26.5
+II,29,60.84,48.3
+II,33,64.76,87.9
+II,28,68.69,85.7
+II,32,72.61,100
+II,31,76.54,100

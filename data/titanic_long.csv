@@ -1,0 +1,17 @@
+"Class","Sex","Age","total","prop"
+"1st","Male","Child",5,1
+"1st","Male","Adult",175,0.325714285714286
+"1st","Female","Child",1,1
+"1st","Female","Adult",144,0.972222222222222
+"2nd","Male","Child",11,1
+"2nd","Male","Adult",168,0.0833333333333333
+"2nd","Female","Child",13,1
+"2nd","Female","Adult",93,0.860215053763441
+"3rd","Male","Child",48,0.270833333333333
+"3rd","Male","Adult",462,0.162337662337662
+"3rd","Female","Child",31,0.451612903225806
+"3rd","Female","Adult",165,0.460606060606061
+"Crew","Male","Child",0,NA
+"Crew","Male","Adult",862,0.222737819025522
+"Crew","Female","Child",0,NA
+"Crew","Female","Adult",23,0.869565217391304
