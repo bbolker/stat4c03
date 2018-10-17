@@ -143,14 +143,14 @@ $(document).ready(function () {
 <li>create a plot displaying the data; use <code>stat_sum</code> (with <code>ggplot</code>) or <code>plotrix::sizeplot()</code> so that the graph shows the number of data values at each point. It’s up to you whether to distinguish between <code>series=&quot;I&quot;</code> and <code>series=&quot;II&quot;</code> in the data.</li>
 <li>use <code>aggregate</code> (base R) or <code>group_by</code> + <code>summarise</code> (<code>dplyr</code>) to compute the proportion killed for each unique dosage value/series combination. Optionally, add another column with the total number of individuals for each dosage value/series combination.</li>
 <li>Create a plot showing these aggregated values; add a smooth line showing the general trend. If you’re feeling ambitious, make the size of the points proportional to the total number of individuals.</li>
-<li>Fit a logistic model including the interaction of the predictors <code>series</code> and <code>log10(dose)</code> to the data.</li>
+<li>(<strong>Use original, disaggregated data from here on</strong>). Fit a logistic model including the interaction of the predictors <code>series</code> and <code>log10(dose)</code> to the data.</li>
 <li>Explain the meaning of the four parameters in words, as they relate to the expected survival, the effects of dose on survival, and the differences in these quantities between series.</li>
 <li>Test the null hypothesis that the two series have identical dose-response curves. Explain whether you are using a Wald test or a likelihood ratio test, and what that means. Is there evidence that the intercepts differ, the slopes, or neither?</li>
 <li>Fit a model that uses only <code>log10(dose)</code>, ignoring <code>series</code>.</li>
 <li>Compute and compare Wald, likelihood profile, and bootstrap confidence intervals for the dose effect.</li>
 <li>Compute and display quantile residual-based diagnostics: what do you conclude?</li>
 <li>Compute predicted survival probabilities and confidence intervals for the minimum, mean, and maximum <code>log10(dose)</code></li>
-<li>The LD50 (dose that is expected to kill 50% of individuals) is defined as the point where the log-odds of survival are equal to zero, i.e. <span class="math inline">\(x_{0.5} =-\beta_1/\beta_0\)</span>. Compute the LD50 based on your fit.</li>
+<li>The LD50 (dose that is expected to kill 50% of individuals) is defined as the point where the log-odds of survival are equal to zero, i.e. <span class="math inline">\(x_{0.5} =-\beta_0/\beta_1\)</span>. Compute the LD50 based on your fit.</li>
 <li>Compute confidence intervals for the LD50 using (1) the delta method and (2) bootstrapping.</li>
 </ol>
 </div>
