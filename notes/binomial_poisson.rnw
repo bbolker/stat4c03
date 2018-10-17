@@ -32,12 +32,11 @@ Please share \& remix noncommercially,
 mentioning its origin.}
 \end{minipage}
 
-Version: \Sexpr{as.character(Sys.time())}
-
 <<opts,echo=FALSE,message=FALSE>>=
 library("knitr")
+do_tikz <- FALSE
 opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
-               dev="tikz")
+               dev="pdf")
 knit_hooks$set(basefig=function(before, options, envir) {
                    if (before) {
                        par(bty="l",las=1)
@@ -61,7 +60,7 @@ Binomial with $N>1$. Basically the same procedures as logistic regression, \emph
 
 \begin{itemize}
 \item easier to do exploration, diagnostics (data are already aggregated)
-\item need to specify response \emph{either} as a two-column matrix: \code{cbind(num\_successes,num\_failures)} \emph{or} as a proportion with the additional \code{weights} variable giving the total number of trials
+\item need to specify response \emph{either} as a two-column matrix: \code{cbind(num\_successes,num\_failures)} \emph{or} (\emph{recommended}) as a proportion with the additional \code{weights} variable giving the total number of trials.
 \item need to check for \textbf{overdispersion} (see below)
 \end{itemize}
   
@@ -72,11 +71,12 @@ lizards <- read.csv("../data/lizards.csv")
 ## gfrac (= fraction grahami), N (=grahami+opalinus) already defined
 lizards <- transform(lizards,
                      time=factor(time,levels=c("early","midday","late")))
-g1 <- glm(gfrac~height+diameter+light+time,
-          lizards,family=binomial,weight=N)
-## or
-g2 <- glm(cbind(grahami,opalinus) ~ height+diameter+light+time,
+g1 <- glm(cbind(grahami,opalinus) ~ height+diameter+light+time,
           lizards, family=binomial)
+g2 <- update(g1,  gfrac ~ ., weight=N)
+## or
+
+## check answers are the same
 all.equal(coef(g1),coef(g2))
 @
 
@@ -136,7 +136,7 @@ Different types of residuals (\code{?residuals.glm},
 \code{?rstandard}, \code{?rstudent})
 \begin{description}
 \item[Raw] $y-\mu$
-\item[Deviance] $\text{sign}(y-\mu) \sqrt{2 w_i \text{dev}_i}$
+\item[Deviance] $\text{sign}(y-\mu) \sqrt{w \text{deviance}}$
 \item[Pearson] $(y-\mu)/(w \sqrt{V(\mu)})$
 \item[Standardized] $(y-\mu) / (\sqrt{V(\mu) (1 - H)}$
 \end{description}
@@ -175,11 +175,10 @@ a quadratic term in the linear predictor, see if it fits better
   fitted value, or individual parameters, or combinations of parameters. If
   residuals are scaled and there is no overdispersion 
   (see below) then the center is at 1
-\item (Banta example?)
 \item Adjust by 
   \begin{itemize}
     \item fixing some other part of the model
-    \item tweaking the variance function
+    \item change the variance function
   \end{itemize}
 \end{itemize}
 
@@ -208,29 +207,6 @@ be right, but the model distribution can still be wrong
   \end{itemize}
 \end{itemize}
 
-Load data on contagious bovine pleuropneumonia \citep{lesnoff_within-herd_2004}, taken
-from \code{lme4} package:
-<<>>=
-load("cbpp.RData")
-ggplot(cbpp,aes(period,incidence/size))+
-    geom_point(aes(size=size),alpha=0.5)+
-    geom_line(aes(group=herd))
-@
-
-Fit with a Poisson-offset model:
-<<cbpp_poissfit>>=
-m1 <- glm(incidence~herd+offset(log(size)),data=cbpp,
-          family=poisson)
-@
-
-<<qqgam, message=FALSE, warning=FALSE,fig.width=8,out.width="\\textwidth">>=
-library(mgcv)
-par(mfrow=c(1,2),las=1,bty="l")
-plot(m1,which=2)  ## Q-Q plot from base R
-qq.gam(m1,pch=1)  ## improved Q-Q from mgcv
-@
-
-
 \subsection{Influential points}
 
 \code{?influence.measures}
@@ -245,30 +221,72 @@ qq.gam(m1,pch=1)  ## improved Q-Q from mgcv
   \end{itemize}
 \end{itemize}
 
-\section{Posterior predictive summaries}
 
-Simulate 1000 times; count the number of zeros in each
-simulation; compute (1-sided) $p$-value.
-<<cbpp_sim>>=
-ss <- simulate(m1,1000,seed=101)
-zerovec <- colSums(ss==0)
-zero.obs <- sum(cbpp$incidence==0)
-(cbpp.zpval <- mean(zerovec>=zero.obs))
+\section{Contraception example \#2}
+Contraceptive use data showing the distribution of 1607 currently married and fecund women interviewed in the Fiji Fertility Survey, according to age, education, desire for more children and current use of contraception:
+downloaded from [http://data.princeton.edu/wws509/datasets/cuse.dat](http://data.princeton.edu/wws509/datasets/cuse.dat).
+<<cusedat,cache=TRUE>>=
+cuse <- read.table("../data/cuse.dat",header=TRUE)
+@ 
+
+Add convenience variables (proportion and total in each group):
+change the \code{education} factor so that ``low'' rather
+than ``high'' is the baseline group:
+<<cuse2>>=
+cuse <- transform(cuse,
+                  propUsing=using/(using+notUsing),
+                  tot=using+notUsing,
+                  education=relevel(education,"low"))
+@ 
+
+\code{ggplot} tricks:
+\begin{itemize}
+  \item use \verb+label_both+ in the
+\verb+facet_grid+ specification to get the subplots labelled
+by their factor name as well as the level name
+\item use \code{aes(x=as.numeric(age))} to convince ggplot
+  to connect the factor levels on the $x$ axis with lines;
+  use \code{size=0.5} to make the lines a little skinnier
+  \end{itemize}
+  
+<<gg_cuse>>=
+(gg1 <- ggplot(cuse,aes(x=age,y=propUsing,size=tot,colour=wantsMore))+
+  facet_grid(.~education,labeller=label_both)+
+  geom_point(alpha=0.9)+
+  geom_line(aes(x=as.numeric(age)),size=0.5))
+@ 
+
+We could fit the three-way interaction, but it would be a bit
+silly because there would be as many parameters as observations
+(this is called a \emph{saturated model}.
+It would probably be more sensible to include only two-way interactions:
+<<cuse2way,message=FALSE,warning=FALSE>>=
+fit2 <- glm(propUsing~(age+education+wantsMore)^2,
+            weights=tot,
+            family=binomial,
+            data=cuse)
+@ 
+
+<<cuse_diag,fig.keep="none">>=
+plot(fit2)
 @
 
-<<cbpp_simplot,echo=FALSE>>=
-par(las=1,bty="l")
-plot(table(zerovec)/ncol(ss),xlab="Number of zeros",
-     ylab="Density")
-points(22,0.05,pch=16,col=2,cex=2)
-text(23,0.1,paste0("$\\text{Prob}(z \\geq 22)=",
-                   signif(cbpp.zpval,2),"$"))
-@
-(this is a 1-sided test)
+<<cuse_diag_broom, fig.keep="none">>=
+library(broom)
+cuse2 <- augment(fit2,data=cuse)
+ggplot(cuse2,aes(.fitted,.resid))+
+    geom_point(aes(size=tot))+
+    geom_smooth(aes(weight=tot))  ## weight variable
+ggplot(cuse2,aes(.fitted,sqrt(abs(.resid))))+
+    geom_point(aes(size=tot))+
+    geom_smooth(aes(weight=tot))
+@ 
 
-\section{Overall goodness-of-fit/overdispersion}
+<<cuse_DHARMa, fig.keep="none",cache=TRUE>>=
+p1 <- DHARMa::simulateResiduals(fit2,plot=TRUE)
+@ 
 
-(\code{aods3} package)
+\section{Overdispersion}
 
 \paragraph{Detection}
 \begin{itemize}
@@ -280,21 +298,79 @@ text(23,0.1,paste0("$\\text{Prob}(z \\geq 22)=",
 
 \paragraph{Meaning}
 \begin{itemize}
-\item May be caused by general lack of fit \ldots
+\item May be caused by poor model \ldots
 \item \emph{or} may be ``intrinsic''
+\item \textbf{don't worry about overdispersion until other modeling issues are dealt with}
+\item overdispersion $>2$ probably means there is a larger problem with the data: check (again) for outliers, obvious lack of fit
+\item \textbf{only} relevant for families with fixed variance (binomial, Poisson), and \textbf{not} for Bernoulli responses
 \end{itemize}
 
 \paragraph{Solutions}
 \begin{itemize}
-\item quasi-likelihood $\phi \equiv \sum r^2/(n-p)$: scales all likelihoods by $\phi$, all CI by $\sqrt{\phi}$
+\item quasi-likelihood $\phi \equiv \sum r^2/(n-p)$: scales all likelihoods by $\phi$, all CI by $\sqrt{\phi}$; \code{family="quasipoisson"}, \code{family="quasibinomial"} in R (? likelihoods ?)
 \item compound/conjugate model
   \begin{itemize}
-  \item negative binomial (Gamma-Poisson) (via \code{MASS::glm.nb})
-  \item Beta-Binomial (via \code{bbmle}?)
+  \item negative binomial (Gamma-Poisson) (via \code{MASS::glm.nb}, \code{glmmTMB})
+  \item Beta-Binomial (via \code{glmmTMB}, \code{bbmle}?)
   \end{itemize}
 \item link-Normal model:
   GLMM with observation-level random effect (Gaussian on linear predictor scale)
 \end{itemize}
+
+In this
+<<cuse_gof>>=
+aods3::gof(fit2)
+@
+
+There do indeed seem to be important two-way interactions:
+<<cusedrop>>=
+drop1(fit2,test="Chisq")
+@ 
+
+<<dw_cuse,message=FALSE>>=
+library(dotwhisker)
+dwplot(fit2)
+@ 
+
+
+\section{Revisiting the AIDS data}
+
+<<aids1,results="hide",message=FALSE>>=
+aids <- read.csv("../data/aids.csv")
+aids <- transform(aids,
+                  date=year+(quarter-1)/4,
+                  index=seq(nrow(aids)))
+@
+
+<<aidsfits>>=
+g1 <- glm(cases~date, data=aids, family=poisson)
+g2 <- update(g1,  . ~ poly(date,2))
+@
+
+<<>>=
+aods3::gof(g1)
+aods3::gof(g2)
+@
+
+Looks marginal.
+
+<<quasi>>=
+g3 <- update(g2, family=quasipoisson)
+@
+
+<<otherfits,eval=FALSE>>=
+g4A <- MASS::glm.nb(cases~poly(date,2), data=aids)
+g4B <- glmmTMB::glmmTMB(cases~poly(date,2), data=aids, family=nbinom2)
+g4C <- glmmTMB::glmmTMB(cases~poly(date,2), data=aids, family=nbinom1)
+bbmle::AICtab(poisson=g2,nbinom1=g4C)
+@
+
+In this case the fancier model is actually slightly \emph{worse}
+according to any criteria we measure \ldots
+
+<<lrt,eval=FALSE>>=
+pchisq(-2*logLik(g2)-(-2*logLik(g4C)),lower.tail=FALSE,df=1)
+@ 
 
 \bibliography{../glmm}
 \end{document}
