@@ -1,0 +1,300 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{From logistic to binomial \& Poisson models}
+\author{Ben Bolker}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+Version: \Sexpr{as.character(Sys.time())}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="tikz")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+library(ggplot2)
+theme_set(theme_bw()) 
+@ 
+
+Logistic regression is special in some ways:
+
+\begin{itemize}
+\item conditional distribution (Bernoulli) is always correct
+\item model diagnostics especially hard
+\item no possibility of \emph{overdispersion}
+\end{itemize}
+
+\section{(Aggregated) binomial regression}
+
+Binomial with $N>1$. Basically the same procedures as logistic regression, \emph{except}:
+
+\begin{itemize}
+\item easier to do exploration, diagnostics (data are already aggregated)
+\item need to specify response \emph{either} as a two-column matrix: \code{cbind(num\_successes,num\_failures)} \emph{or} as a proportion with the additional \code{weights} variable giving the total number of trials
+\item need to check for \textbf{overdispersion} (see below)
+\end{itemize}
+  
+Set up an example to use:
+
+<<lizards>>=
+lizards <- read.csv("../data/lizards.csv")
+## gfrac (= fraction grahami), N (=grahami+opalinus) already defined
+lizards <- transform(lizards,
+                     time=factor(time,levels=c("early","midday","late")))
+g1 <- glm(gfrac~height+diameter+light+time,
+          lizards,family=binomial,weight=N)
+## or
+g2 <- glm(cbind(grahami,opalinus) ~ height+diameter+light+time,
+          lizards, family=binomial)
+all.equal(coef(g1),coef(g2))
+@
+
+\section{Model diagnostics}
+
+\begin{description}
+\item[Graphical] plot computed diagnostic summaries and/or transformations
+of residuals to highlight particular classes of model deviations
+\item[Formal]
+\begin{itemize}
+\item compute an overall goodness-of-fit statistic with a known null
+distribution
+\item embed the model in a larger parametric family; compare
+via likelihood ratio test (consider exact or ``round'' alternative).
+May use \emph{score test} or single-step update for computational
+efficiency.
+<<quadlogpic,echo=FALSE>>=
+## f' = -2*z*exp(-z^2)
+## f'' = -2*(exp(-z^2)-2*z^2*exp(-z^2)) = -2*exp(-z^2)*(1-2*z^2)
+zlin <- function(z,a) -2*(z-a)*exp(-(z-a)^2)
+zquad <- function(z,a) -2*exp(-(z-a)^2)*(1-2*(z-a)^2)
+## c(zlin(1,1),zquad(1,1))
+## c(zlin(0,1),zquad(0,1))
+L0 <- exp(-1)
+L1 <- exp(0)
+curve(exp(-(x-1)^2),from=-1,to=1.5,ylab="log-likelihood",ylim=c(0,1.5),axes=FALSE)
+box(bty="l")
+wfun <- function(x) zquad(1,1)/2*(x-1)^2+1
+sfun <- function(x) exp(-1)+zlin(0,1)*x+zquad(0,1)/2*x^2
+curve(wfun(x),add=TRUE,lty=2,col=2)
+curve(sfun(x),add=TRUE,lty=2,col=4)
+abline(v=c(0,1),col="gray")
+u1 <- par("usr")[1]
+segments(u1,L0,0,L0,lty=3)
+segments(u1,L1,1,L1,lty=3)
+segments(u1,wfun(0),0,wfun(0),col=2,lty=3)
+segments(u1,sfun(1),1,sfun(1),col=4,lty=3)
+axis(side=1,at=c(0,1),label=c("$H_0$","$H_1$"))
+axis(side=2,at=c(L0,L1),label=c("$\\ell_0$","$\\ell_1$"))
+arrows(u1+0.25,L0,u1+0.25,L1,code=3)
+text(u1+0.3,(L0+L1)/2,"LRT")
+arrows(u1+0.35,wfun(0),u1+0.35,L1,code=3,col=2)
+text(u1+0.4,(wfun(0)+L1)/2,"Wald",col=2)
+arrows(u1+0.55,L0,u1+0.55,sfun(1),code=3,col=4)
+text(u1+0.6,(L0+sfun(1))/2,"score",col=4)
+@
+\citep{fears_reminder_1996,pawitan_reminder_2000}
+\end{itemize}
+\end{description}
+%``General score tests for regression models incorporating 'robust' variance estimates'' (Clayton and Howson, \url{http://www.stata.com/meeting/9uk/abstracts.html}, 9th Stata UK User Group meeting, May 2003)
+%\includegraphics[width=5in]{nested_tests.png}
+%(from \href{http://www.ats.ucla.edu/stat/mult_pkg/faq/general/nested_tests.htm}{UCLA stats FAQ}, ultimately from Fox 1997)
+
+\subsection{Residuals}
+
+Different types of residuals (\code{?residuals.glm},
+\code{?rstandard}, \code{?rstudent})
+\begin{description}
+\item[Raw] $y-\mu$
+\item[Deviance] $\text{sign}(y-\mu) \sqrt{2 w_i \text{dev}_i}$
+\item[Pearson] $(y-\mu)/(w \sqrt{V(\mu)})$
+\item[Standardized] $(y-\mu) / (\sqrt{V(\mu) (1 - H)}$
+\end{description}
+
+Note whether residuals are scaled by (1) variance function,
+(2) weights, (3) full variance (i.e. including overdispersion factor $\phi$),
+(4) diagonal of \emph{hat matrix} (\code{hatvalues()}).  
+
+(Hat matrix: weighted version of $H=\X(\X^T\X)^{-1} \X^T$:
+ maps $\y$ to $\hat \y$, so $h_{ii}$ is the influence of $y_i$ on
+$\hat y_i$.  All hat values are identical for linear models with categorical
+variables, but not for regression models/GLMs \ldots)
+
+\subsection{Linearity}
+
+\begin{itemize}
+\item (Deviance) residual vs. fitted plot
+\item (Deviance) residuals vs. individual predictors, or
+combinations of predictors
+\item link test \cite{pregibon_goodness_1980}; try adding
+a quadratic term in the linear predictor, see if it fits better
+\item Adjust by
+  \begin{itemize}
+    \item changing link function: \code{power()})
+    \item adding polynomial or spline terms 
+      to individual predictors (\code{poly()},
+      \code{splines::ns()})
+    \item transforming individual predictors
+  \end{itemize}
+\end{itemize}
+
+\subsection{Variance function}
+
+\begin{itemize}
+\item Scale-location plot: $\sqrt{\mbox{abs}(\text{residuals})}$ vs.
+  fitted value, or individual parameters, or combinations of parameters. If
+  residuals are scaled and there is no overdispersion 
+  (see below) then the center is at 1
+\item (Banta example?)
+\item Adjust by 
+  \begin{itemize}
+    \item fixing some other part of the model
+    \item tweaking the variance function
+  \end{itemize}
+\end{itemize}
+
+\subsection{Distributional assumptions}
+
+The variance function and link function might both
+be right, but the model distribution can still be wrong
+(e.g. log-Normal vs Gamma, zero-inflation).
+
+\begin{itemize}
+\item assessing distributional assumption is hard because it's the
+  \emph{conditional} distribution 
+\item Q-Q plot (examples): good, but only really
+  valid asymptotically (i.e. conditional distribution of
+  \emph{individual samples} $\approx$ Normal: e.g.
+  $\lambda>5$ for Poisson, $n\text{min}(p,1-p) >5$ for Binomial)
+\item alternatives to Q-Q plot, e.g. \cite{hoaglin_poissonness_1980}
+  (not really practical)
+\item Improved Q-Q plot: \cite{augustin_quantile_2012}, \code{mgcv::qq.gam()}
+\item Adjust by
+  \begin{itemize}
+  \item alternative distribution (log-Normal/Gamma)
+  \item ordinal models
+  \item robust models (\code{robustbase::glmrob})
+  \end{itemize}
+\end{itemize}
+
+Load data on contagious bovine pleuropneumonia \citep{lesnoff_within-herd_2004}, taken
+from \code{lme4} package:
+<<>>=
+load("cbpp.RData")
+ggplot(cbpp,aes(period,incidence/size))+
+    geom_point(aes(size=size),alpha=0.5)+
+    geom_line(aes(group=herd))
+@
+
+Fit with a Poisson-offset model:
+<<cbpp_poissfit>>=
+m1 <- glm(incidence~herd+offset(log(size)),data=cbpp,
+          family=poisson)
+@
+
+<<qqgam, message=FALSE, warning=FALSE,fig.width=8,out.width="\\textwidth">>=
+library(mgcv)
+par(mfrow=c(1,2),las=1,bty="l")
+plot(m1,which=2)  ## Q-Q plot from base R
+qq.gam(m1,pch=1)  ## improved Q-Q from mgcv
+@
+
+
+\subsection{Influential points}
+
+\code{?influence.measures}
+
+\begin{itemize}
+\item Cook's distance (overall influence)
+\item leverage
+\item Adjust by
+  \begin{itemize}
+  \item leaving out influential points to see if it makes a difference
+  \item robust modeling (\code{robustbase::glmrob})
+  \end{itemize}
+\end{itemize}
+
+\section{Posterior predictive summaries}
+
+Simulate 1000 times; count the number of zeros in each
+simulation; compute (1-sided) $p$-value.
+<<cbpp_sim>>=
+ss <- simulate(m1,1000,seed=101)
+zerovec <- colSums(ss==0)
+zero.obs <- sum(cbpp$incidence==0)
+(cbpp.zpval <- mean(zerovec>=zero.obs))
+@
+
+<<cbpp_simplot,echo=FALSE>>=
+par(las=1,bty="l")
+plot(table(zerovec)/ncol(ss),xlab="Number of zeros",
+     ylab="Density")
+points(22,0.05,pch=16,col=2,cex=2)
+text(23,0.1,paste0("$\\text{Prob}(z \\geq 22)=",
+                   signif(cbpp.zpval,2),"$"))
+@
+(this is a 1-sided test)
+
+\section{Overall goodness-of-fit/overdispersion}
+
+(\code{aods3} package)
+
+\paragraph{Detection}
+\begin{itemize}
+\item Variance $>$ expected (e.g. assume variance = mean but variance $>$ mean)
+\item Test: $\sum (\text{Pearson residuals})^2 \approx \text{residual df}$
+\item More specifically, $\sum r^2 \sim \chi^2_{n-p}$
+\item \verb+pchisq(sum(residuals(.,type="pearson")^2),rdf,lower.tail=FALSE)+, or \code{aods3::gof(.)}
+\end{itemize}
+
+\paragraph{Meaning}
+\begin{itemize}
+\item May be caused by general lack of fit \ldots
+\item \emph{or} may be ``intrinsic''
+\end{itemize}
+
+\paragraph{Solutions}
+\begin{itemize}
+\item quasi-likelihood $\phi \equiv \sum r^2/(n-p)$: scales all likelihoods by $\phi$, all CI by $\sqrt{\phi}$
+\item compound/conjugate model
+  \begin{itemize}
+  \item negative binomial (Gamma-Poisson) (via \code{MASS::glm.nb})
+  \item Beta-Binomial (via \code{bbmle}?)
+  \end{itemize}
+\item link-Normal model:
+  GLMM with observation-level random effect (Gaussian on linear predictor scale)
+\end{itemize}
+
+\bibliography{../glmm}
+\end{document}
+
