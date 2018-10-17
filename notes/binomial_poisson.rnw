@@ -196,9 +196,10 @@ be right, but the model distribution can still be wrong
   valid asymptotically (i.e. conditional distribution of
   \emph{individual samples} $\approx$ Normal: e.g.
   $\lambda>5$ for Poisson, $n\text{min}(p,1-p) >5$ for Binomial)
-\item alternatives to Q-Q plot, e.g. \cite{hoaglin_poissonness_1980}
+\item alternatives to Q-Q plot, e.g. \citep{hoaglin_poissonness_1980}
   (not really practical)
-\item Improved Q-Q plot: \cite{augustin_quantile_2012}, \code{mgcv::qq.gam()}
+\item Improved Q-Q plot: \code{mgcv::qq.gam()} \cite{augustin_quantile_2012},
+  \code{DHARMa::simulateResiduals()} \cite{hartig_dharma_2018}
 \item Adjust by
   \begin{itemize}
   \item alternative distribution (log-Normal/Gamma)
