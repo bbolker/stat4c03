@@ -1,0 +1,138 @@
+---
+title: "homework 3: logistic regression"
+---
+
+- homework is due in Dropbox on Avenue on **Weds 26 September**.
+- your homework should be saved as R code with comments (`.R`), R markdown (`.Rmd`), or Sweave (`.Rnw`)
+- **none of the following functions should appear in your solution**:
+    - `setwd()`
+    - `rm(list=ls())`
+	- `attach()`
+- the TA or I should be able run your code from scratch without any problems.
+
+
+## logistic regression on beetles
+
+```{r aggregate,echo=FALSE}
+x <- read.csv("../data/beetle2.csv",comment="#")
+library(dplyr)
+x_disagg <- (x
+    %>% mutate(num_kill=round(pct.kill/100*total))
+    %>% select(series,dosage,num_kill,total)
+    %>% rowwise()
+    %>% do(data_frame(series=rep(.$series,.$total),
+                      dosage=rep(.$dosage,.$total),
+                      dead=rep(0:1,c(.$total-.$num_kill,.$num_kill))))
+)
+write.csv(x_disagg,file="../data/beetle3.csv",row.names=FALSE)
+```
+
+1. create a plot displaying the data; use `stat_sum` (with `ggplot`) or `plotrix::sizeplot()` so that the graph shows the number of data values at each point. It's up to you whether to distinguish between `series="I"` and `series="II"` in the data.
+
+```{r plot1,message=FALSE}
+dd <- read.csv("../data/beetle3.csv")
+library(ggplot2); theme_set(theme_bw())
+ggplot(dd,aes(dosage,dead))+stat_sum()+facet_wrap(~series)+
+    geom_smooth()
+```
+Or:
+
+```{r plot2,message=FALSE}
+library(plotrix)
+with(dd,sizeplot(dosage,dead,ylim=c(-0.2,1.2)))
+```
+
+2. use `aggregate` (base R) or `group_by` + `summarise` (`dplyr`) to compute the proportion killed for each unique dosage value/series combination. Optionally, add another column with the total number of individuals for each dosage value/series combination.
+
+```{r}
+dd2 <- (dd
+    %>% group_by(series,dosage)
+    %>% summarise(tot=n(),prop=mean(dead))
+)
+
+dd2B <- aggregate(dead~dosage+series, FUN=mean, data=dd)
+```
+
+3. Create a plot showing these aggregated values; add a smooth line showing the general trend. If you're feeling ambitious, make the size of the points proportional to the total number of individuals.
+
+```{r}
+ggplot(dd2,aes(dosage,prop,colour=series))+geom_point(aes(size=tot))+
+    geom_smooth(aes(weight=tot))
+```
+
+4. Fit a logistic model including the interaction of the predictors `series` and `log10(dose)` to the **original** (disaggregated) data.
+
+```{r}
+g1 <- glm(dead ~ series*log10(dosage), data=dd)
+```
+5. Explain the meaning of the four parameters in words, as they relate to the expected survival, the effects of dose on survival, and the differences in these quantities between series.
+
+*Answers will depend on whether you used treatment or sum-to-zero contrasts*
+
+5. Test the null hypothesis that the two series have identical dose-response curves. Explain whether you are using a Wald test or a likelihood ratio test, and what that means. Is there evidence that the intercepts differ, the slopes, or neither?
+
+Likelihood ratio test of combination of intercepts and slopes:
+```{r}
+g0 <- update(g1, . ~ log10(dosage))
+anova(g0, g1, test="Chisq")
+```
+(i.e. no evidence that either slopes or intercepts differ)
+
+Wald tests of differences in intercept alone (`seriesII`), differences in slope alone (`seriesII:log10(dosage)`)
+
+```{r}
+printCoefmat(coef(summary(g1))[c("seriesII","seriesII:log10(dosage)"),])
+```
+
+6. Fit a model that uses only `log10(dose)`, ignoring `series`.
+
+We already did this, more or less:
+
+```{r}
+
+7. Compute and compare the Wald and likelihood profile confidence intervals for the dose effect.
+
+```{r}
+(c1 <- stats::confint.default(g0)["log10(dosage)",])
+(c2 <- confint(g0)["log10(dosage)",])
+## not identical, but **very** close
+c1-c2
+```
+8.
+
+```{r message=FALSE}
+rr <- DHARMa::simulateResiduals(g0, plot=TRUE)
+```
+
+9.
+
+```{r}
+pframe <- with(dd2,
+               data.frame(dosage=c(min(dosage),mean(dosage),max(dosage))))
+## could use 10^mean(log10(dosage)) for central value as well
+pp <- predict(g0, newdata=pframe, se.fit=TRUE)
+pframe$prob <- plogis(pp$fit)
+pframe$lwr <- plogis(pp$fit-1.96*pp$se.fit)
+pframe$upr <- plogis(pp$fit+1.96*pp$se.fit)
+
+```{r}
+LD50 <- with(as.list(coef(g0)), -`(Intercept)`/`log10(dosage)`)
+```
+
+Delta method:
+```{r}
+## b0 + b1*x = 0 -> x = -b0/b1
+b0 <- coef(g0)[["(Intercept)"]]
+b1 <- coef(g0)[["log10(dosage)"]]
+## derivs: c(-1/b1, b0/b1^2)
+grad <- c(-1/b1,b0/b1^2)
+sqrt(grad %*% vcov(g0) %*% grad)
+```
+
+Lazy method:
+```{r}
+library(emdbook)
+sqrt(deltavar(-b0/b1,meanval=c(b0=b0,b1=b1),Sigma=vcov(g0)))
+```
+
+Bootstrap:
