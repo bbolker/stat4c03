@@ -1,0 +1,43 @@
+---
+title: "homework 3: logistic regression"
+---
+
+- homework is due in Dropbox on Avenue on **Weds 17 October**.
+- your homework should be saved as R code with comments (`.R`), R markdown (`.Rmd`), or Sweave (`.Rnw`)
+- **none of the following functions should appear in your solution**:
+    - `setwd()`
+    - `rm(list=ls())`
+	- `attach()`
+- the TA or I should be able run your code from scratch without any problems.
+
+
+## logistic regression on beetles
+
+```{r echo=FALSE,message=FALSE}
+x <- read.csv("../data/beetle2.csv",comment="#")
+library(dplyr)
+x_disagg <- (x
+    %>% mutate(num_kill=round(pct.kill/100*total))
+    %>% select(series,dosage,num_kill,total)
+    %>% rowwise()
+    %>% do(data_frame(series=rep(.$series,.$total),
+                      dosage=rep(.$dosage,.$total),
+                      dead=rep(0:1,c(.$total-.$num_kill,.$num_kill))))
+)
+write.csv(x_disagg,file="../data/beetle3.csv",row.names=FALSE)
+```
+
+Get the `beetle3.csv` data set [here](https://bbolker.github.io/stat4c03/data/beetle3.csv)
+
+1. create a plot displaying the data; use `stat_sum` (with `ggplot`) or `plotrix::sizeplot()` so that the graph shows the number of data values at each point. It's up to you whether to distinguish between `series="I"` and `series="II"` in the data.
+2. use `aggregate` (base R) or `group_by` + `summarise` (`dplyr`) to compute the proportion killed for each unique dosage value/series combination. Optionally, add another column with the total number of individuals for each dosage value/series combination.
+3. Create a plot showing these aggregated values; add a smooth line showing the general trend. If you're feeling ambitious, make the size of the points proportional to the total number of individuals.
+4. (**Use original, disaggregated data from here on**). Fit a logistic model including the interaction of the predictors `series` and `log10(dose)` to the data.
+5. Explain the meaning of the four parameters in words, as they relate to the expected survival, the effects of dose on survival, and the differences in these quantities between series.
+5. Test the null hypothesis that the two series have identical dose-response curves. Explain whether you are using a Wald test or a likelihood ratio test, and what that means. Is there evidence that the intercepts differ, the slopes, or neither?
+6. Fit a model that uses only `log10(dose)`, ignoring `series`.
+7. Compute and compare Wald, likelihood profile, and bootstrap confidence intervals for the dose effect.
+8. Compute and display quantile residual-based diagnostics: what do you conclude?
+9. Compute predicted survival probabilities and confidence intervals for the minimum, mean, and maximum `log10(dose)`
+10. The LD50 (dose that is expected to kill 50% of individuals) is defined as the point where the log-odds of survival are equal to zero, i.e. $x_{0.5} =-\beta_0/\beta_1$. Compute the LD50 based on your fit.
+11. Compute confidence intervals for the LD50 using (1) the delta method and (2) bootstrapping.

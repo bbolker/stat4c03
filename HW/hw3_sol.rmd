@@ -13,7 +13,8 @@ title: "homework 3: logistic regression"
 
 ## logistic regression on beetles
 
-```{r aggregate,echo=FALSE}
+```{r disaggregate,echo=FALSE,message=FALSE}
+## generate *disaggregated* values from aggregates
 x <- read.csv("../data/beetle2.csv",comment="#")
 library(dplyr)
 x_disagg <- (x
@@ -44,35 +45,45 @@ with(dd,sizeplot(dosage,dead,ylim=c(-0.2,1.2)))
 
 2. use `aggregate` (base R) or `group_by` + `summarise` (`dplyr`) to compute the proportion killed for each unique dosage value/series combination. Optionally, add another column with the total number of individuals for each dosage value/series combination.
 
-```{r}
+```{r aggregate}
+## with dplyr:
 dd2 <- (dd
     %>% group_by(series,dosage)
     %>% summarise(tot=n(),prop=mean(dead))
 )
 
+## with aggregate:
+## (there are various ways to do it but I prefer the formula interface
 dd2B <- aggregate(dead~dosage+series, FUN=mean, data=dd)
+##  to add another column:
+dd2B <- aggregate(dead~dosage+series,
+                  FUN=function(x) c(prop=mean(x), tot=length(x)),
+                  data=dd)
+## collapse matrix elements 
+dd2B <- do.call(data.frame, dd2B)
 ```
 
 3. Create a plot showing these aggregated values; add a smooth line showing the general trend. If you're feeling ambitious, make the size of the points proportional to the total number of individuals.
 
-```{r}
+```{r aggplot,message=FALSE}
 ggplot(dd2,aes(dosage,prop,colour=series))+geom_point(aes(size=tot))+
     geom_smooth(aes(weight=tot))
 ```
 
 4. Fit a logistic model including the interaction of the predictors `series` and `log10(dose)` to the **original** (disaggregated) data.
 
-```{r}
-g1 <- glm(dead ~ series*log10(dosage), data=dd)
+```{r logist1}
+g1 <- glm(dead ~ series*log10(dosage), data=dd, family=binomial)
 ```
+
 5. Explain the meaning of the four parameters in words, as they relate to the expected survival, the effects of dose on survival, and the differences in these quantities between series.
 
 *Answers will depend on whether you used treatment or sum-to-zero contrasts*
 
-5. Test the null hypothesis that the two series have identical dose-response curves. Explain whether you are using a Wald test or a likelihood ratio test, and what that means. Is there evidence that the intercepts differ, the slopes, or neither?
+6. Test the null hypothesis that the two series have identical dose-response curves. Explain whether you are using a Wald test or a likelihood ratio test, and what that means. Is there evidence that the intercepts differ, the slopes, or neither?
 
 Likelihood ratio test of combination of intercepts and slopes:
-```{r}
+```{r lrt}
 g0 <- update(g1, . ~ log10(dosage))
 anova(g0, g1, test="Chisq")
 ```
@@ -80,33 +91,53 @@ anova(g0, g1, test="Chisq")
 
 Wald tests of differences in intercept alone (`seriesII`), differences in slope alone (`seriesII:log10(dosage)`)
 
-```{r}
+```{r wald}
 printCoefmat(coef(summary(g1))[c("seriesII","seriesII:log10(dosage)"),])
 ```
 
-6. Fit a model that uses only `log10(dose)`, ignoring `series`.
+7. Fit a model that uses only `log10(dose)`, ignoring `series`.
 
 We already did this, more or less:
 
-```{r}
+```{r logist0}
+glm(dead ~ log10(dosage), data=dd, family=binomial)
+```
 
-7. Compute and compare the Wald and likelihood profile confidence intervals for the dose effect.
+8. Compute and compare the Wald, likelihood profile, and bootstrap confidence intervals for the dose effect.
 
-```{r}
+```{r waldCIcomp}
 (c1 <- stats::confint.default(g0)["log10(dosage)",])
-(c2 <- confint(g0)["log10(dosage)",])
+(c2 <- suppressMessages(confint(g0)["log10(dosage)",]))
+## suppressMessages() to get rid of "Waiting for profiling to be done ..."
 ## not identical, but **very** close
 c1-c2
 ```
-8.
 
-```{r message=FALSE}
+Bootstrap:
+```{r CIboot,cache=TRUE}
+bootfun0 <- function() {
+    bootdat <- dd[sample(nrow(dd),replace=TRUE),]
+    gb <- update(g0, data=bootdat)
+    b1 <- coef(gb)["log10(dosage)"]
+    return(b1)
+}
+set.seed(101)
+bootvals0 <- replicate(1000,bootfun0())
+(boot_ci0 <- quantile(bootvals0,c(0.025,0.975)))
+```	
+Also very similar (bootstrap CIs have an extra stochastic component, as well; we might get slightly different answers if we ran it all with a different random-number seed)
+
+9. Compute and display quantile residual-based diagnostics: what do you conclude?
+
+```{r DHARMa,message=FALSE,cache=TRUE}
 rr <- DHARMa::simulateResiduals(g0, plot=TRUE)
 ```
 
-9.
+Plot residuals look more or less perfect (which they kind of have to be, since the Bernoulli conditional distribution is necessarily true); quantile values (red vs dotted black lines) look good, suggesting little bias. (I didn't use `pch="."` here, not really useful unless we have a very large data set).
 
-```{r}
+10. Compute predicted survival probabilities and confidence intervals for the minimum, mean, and maximum log10(dose)
+
+```{r predCI}
 pframe <- with(dd2,
                data.frame(dosage=c(min(dosage),mean(dosage),max(dosage))))
 ## could use 10^mean(log10(dosage)) for central value as well
@@ -114,25 +145,48 @@ pp <- predict(g0, newdata=pframe, se.fit=TRUE)
 pframe$prob <- plogis(pp$fit)
 pframe$lwr <- plogis(pp$fit-1.96*pp$se.fit)
 pframe$upr <- plogis(pp$fit+1.96*pp$se.fit)
+```
 
-```{r}
+11. The LD50 (dose that is expected to kill 50% of individuals) is defined as the point where the log-odds of survival are equal to zero, i.e. x0.5=−β0/β1
+. Compute the LD50 based on your fit.
+```{r LD50}
 LD50 <- with(as.list(coef(g0)), -`(Intercept)`/`log10(dosage)`)
 ```
 
+12. Compute confidence intervals for the LD50 using (1) the delta method and (2) bootstrapping.
+
 Delta method:
-```{r}
+```{r delta}
 ## b0 + b1*x = 0 -> x = -b0/b1
 b0 <- coef(g0)[["(Intercept)"]]
 b1 <- coef(g0)[["log10(dosage)"]]
 ## derivs: c(-1/b1, b0/b1^2)
 grad <- c(-1/b1,b0/b1^2)
-sqrt(grad %*% vcov(g0) %*% grad)
+(delta_sd <- c(sqrt(grad %*% vcov(g0) %*% grad)))
+## c() converts result from a matrix to a (length-1) vector
+(delta_ci <- (-b0/b1) + 1.96*c(-1,1)*delta_sd)
 ```
 
 Lazy method:
-```{r}
+```{r delta2}
 library(emdbook)
 sqrt(deltavar(-b0/b1,meanval=c(b0=b0,b1=b1),Sigma=vcov(g0)))
 ```
 
 Bootstrap:
+```{r boot,cache=TRUE}
+bootfun <- function() {
+    bootdat <- dd[sample(nrow(dd),replace=TRUE),]
+    gb <- update(g0, data=bootdat)
+    b0 <- coef(gb)[1]
+    b1 <- coef(gb)[2]
+    return(-b0/b1)
+}
+set.seed(101)
+## a quick way to skip the for() loop
+bootvals <- replicate(1000,bootfun())
+(boot_ci <- quantile(bootvals,c(0.025,0.975)))
+```
+
+Delta-method and bootstrap results are very similar.
+
