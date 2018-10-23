@@ -1,0 +1,128 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{Tidy models}
+\author{Ben Bolker}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+do_tikz <- FALSE
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="pdf")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+library(ggplot2)
+theme_set(theme_bw()) 
+@ 
+
+
+\section{Introduction}
+
+The \code{broom} package is the core of the \href{https://github.com/tidymodels/tidymodels}{tidymodels} ecosystem, a set of tools for handling models in a ``tidy'' fashion.  (\code{broom.mixed} contains extensions for mixed models, and a few other odds and ends.)
+
+\begin{itemize}
+  \item \code{tidy} produces coefficient tables (estimates, standard errors, 
+    $t$/$Z$ statistics, p values, confidence intervals, etc.)
+    \begin{itemize}
+      \item use \code{conf.int=TRUE} to get confidence intervals (not just SEs)
+      \item use \code
+  \item \code{glance} produces model summaries ($R^2$, residual df, AIC, BIC, etc.)
+  \item \code{augment} produces predictions, residuals, etc..
+\end{itemize}
+
+\section{Revisiting the AIDS data}
+
+<<aids1,results="hide",message=FALSE>>=
+library(glmmTMB)
+library(dotwhisker)
+library(ggplot2)
+library(broom)
+library(broom.mixed)
+aids <- read.csv("../data/aids.csv")
+aids <- transform(aids,
+                  date=year+(quarter-1)/4,
+                  index=seq(nrow(aids)))
+@
+
+<<aidsfits>>=
+g1 <- glm(cases ~ poly(date,2), data=aids, family=poisson)
+g2 <- update(g1, family=quasipoisson)
+g3 <- glmmTMB::glmmTMB(cases~poly(date,2), data=aids, family=nbinom2)
+g4 <- glmmTMB::glmmTMB(cases~poly(date,2), data=aids, family=nbinom1)
+@
+
+<<>>=
+aa <- augment(g4,data=aids)
+@ 
+
+<<>>=
+## fitted-residual plot
+ggplot(aa,aes(.fitted,.resid))+geom_point()+geom_smooth()
+## scale-location plot
+ggplot(aa,aes(.fitted,sqrt(abs(.resid))))+geom_point()+geom_smooth()
+## manual addition of predictions to the plot
+ggplot(aa,aes(date,cases))+geom_point()+
+    geom_line(aes(y=exp(.fitted)),colour="red")+
+    geom_ribbon(aes(ymin=exp(.fitted-1.96*.se.fit),
+                    ymax=exp(.fitted+1.96*.se.fit)),
+                alpha=0.3)
+@ 
+
+\section{dotwhisker::dwplot}
+
+\code{dotwhisker::dwplot} creates \emph{coefficient plots}
+\begin{itemize}
+  
+
+<<>>=
+dwplot(list(poisson=g1,QP=g2,nb2=g3,nb1=g4),effects="fixed",
+       by_2sd=FALSE)+
+    geom_vline(xintercept=0,lty=2)
+@ 
+
+<<>>=
+t1 <- tidy(g4,conf.int=TRUE,conf.method="wald")
+t2 <- tidy(g4,conf.int=TRUE,conf.method="profile")
+@ 
+\section{huxtable::huxreg}
+
+If your boss insists on parameter tables:
+
+<<results="asis">>=
+h0 <- huxtable::huxreg(poisson=g1,QP=g2,nbinom2=g3,nbinom1=g4)
+cat(to_latex(h0,tabular_only=TRUE))
+@ 
+\bibliography{../glmm}
+\end{document}
+

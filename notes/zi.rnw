@@ -1,0 +1,108 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+\title{Zero-inflation}
+\author{Ben Bolker}
+\usepackage{fancyvrb}
+\newcommand{\code}[1]{{\tt #1}}
+\VerbatimFootnotes
+
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+\section{Zero-inflation}
+
+\begin{itemize}
+\item Models with ``too many zeros''.
+\item ``Lots of zeros'' $\neq$ ``zero-inflated'' --- could just be small mean / large variance (overdispersion)
+\item Mode at zero plus mode away from zero is \emph{definitely} zero-inflated, however
+\item Zero-inflated Poisson and negative binomial most common, although zero-inflated binomial is possible
+\item Zero-inflated \emph{continuous} distributions typically best dealt with as binary + conditional continuous model (or censored model)
+\item Simplest version, zero-inflation: mixture model.  Probability $p$ of \emph{structural} zero, probability $1-p$ that the variable follows the \emph{conditional} distribution (e.g. if conditional distribution is Poisson, the probability of of a \emph{sampling} zero is $(1-p) \exp(-\lambda)$. \textbf{Please} don't call them ``true'' and ``false'' zeros.
+\item Alternative: \emph{hurdle} model. Zeros lumped together, so we have probability $p$ of zero plus a
+  \emph{truncated} Poisson model (i.e. zeros removed).
+\item ZI, hurdle models identical for a single sample, but differ in how the covariates act
+\item Can fit both, but best to use \emph{a priori} reasoning: how do we think zeros are generated?
+\item Can have separate models (i.e. different subsets of predictors) for the zero-inflation component and the \emph{conditional} distribution
+\item \code{pscl} package for simple zero-inflation (ZIP/ZINB); can use \code{glmmTMB} for mixed models, fancier distributions (e.g. ZINB1)
+\end{itemize}
+
+<<pscl>>=
+library(pscl)
+data("bioChemists", package = "pscl")
+@ 
+
+<<>>=
+bioCh2 <- bioChemists
+bioCh2$cment <- cut(bioCh2$ment,
+                    c(0,1,5,10,20,80),
+                    right=FALSE,include.lowest=TRUE)
+bioCh2$anykids <- factor(bioCh2$kid5==0,labels=c("kids","no kids"))
+
+library(ggplot2); theme_set(theme_bw())
+ggplot(bioCh2,
+       aes(y=art,x=cment,colour=fem))+
+  facet_grid(mar~fem)+
+  stat_sum(aes(group=cment))+
+    labs(x="Number of articles produced by mentor",
+         y="Number of articles")
+
+ggplot(subset(bioCh2,mar=="Married"),
+       aes(y=art,x=cment,colour=fem))+facet_grid(anykids~fem)+
+  stat_sum(aes(group=cment))
+@
+
+Fit logit-Poisson model:
+\verb+art ~ .+ is the same as \verb+art ~ . | .+, or
+equivalently
+\verb!art ~ fem + mar + kid5 + phd + ment | fem + mar + kid5 + phd + ment!, i.e. include all terms in both the zero-inflation model
+and the hurdle model.
+
+<<>>=
+fm_hp <- hurdle(art ~ ., data = bioChemists)
+fm_hnb <- hurdle(art ~ ., data = bioChemists, dist="negbin")
+summary(fm_hnb)
+fm_zip <- zeroinfl(art ~ ., dist="poisson", data = bioChemists)
+fm_zinb <- zeroinfl(art ~ ., dist="negbin", data = bioChemists)
+library(bbmle)
+AICtab(fm_zip,fm_zinb,fm_hp,fm_hnb)
+@ 
+
+Should consider interactions?
+
+Expectation-maximization:
+\begin{itemize}
+\item fit GL(M)M for zero-inflated part and conditional part of model;
+  latter is with weights ($1-z$)
+\item expectation: set zero probability to $u/( u+(1-u)*exp(-v))$
+  where $u$ is the zero-inflation probability and $v$ is the Poisson
+  mean
+\end{itemize}
+
+\bibliography{glmm}
+\end{document}
+
