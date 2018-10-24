@@ -1,0 +1,348 @@
+\documentclass{tufte-handout}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{colorlinks,linkcolor=blue}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel} %% texi2dvi ~ bug
+\usepackage{tikz} % http://www.texample.net/tikz/examples/tikzdevice-demo/
+\usepackage{natbib}
+\usepackage{bm}
+\newcommand{\code}[1]{{\tt #1}}
+\newcommand{\y}{{\mathbf y}}
+\newcommand{\Y}{{\mathbf Y}}
+\newcommand{\V}{{\mathbf V}}
+\newcommand{\bb}{{\mathbf b}}
+\newcommand{\bbeta}{{\bm \beta}}
+\newcommand{\bmu}{{\bm \mu}}
+\newcommand{\X}{\mathbf X}
+
+\title{Notes for week 7}
+\author{Ben Bolker}
+\begin{document}
+\maketitle
+\bibliographystyle{chicago}
+
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
+\begin{minipage}[b]{3in}
+{\tiny Licensed under the Creative Commons 
+  attribution-noncommercial license
+(\url{http://creativecommons.org/licenses/by-nc/3.0/}).
+Please share \& remix noncommercially,
+mentioning its origin.}
+\end{minipage}
+
+<<opts,echo=FALSE,message=FALSE>>=
+library("knitr")
+opts_chunk$set(tidy=FALSE,fig.width=6,fig.height=4,fig.position="center",
+               dev="tikz")
+knit_hooks$set(basefig=function(before, options, envir) {
+                   if (before) {
+                       par(bty="l",las=1)
+                   } else { }
+               })
+@
+
+<<pkgs,message=FALSE>>=
+library(ggplot2)
+theme_set(theme_bw())
+library(scales)    ## squish
+library(gridExtra) ## grid.arrange()
+library(nnet)      ## multinom()
+library(plyr)
+library(reshape2)
+library(faraway)   ## data
+library(RColorBrewer) ## nice colours
+@
+
+\section{Ordered predictors}
+
+(Not the primary topic but feel like I ought to mention it.)
+
+\emph{Ordered} factors are the case where there is a natural
+ordering to the responses.
+
+This is (confusingly) different from the usual unordered-factor
+case, where the order of the levels is still used (1) to determine
+the order of the categories for high-level plotting and (2) to
+determine contrasts (which level is the baseline).
+
+Options for dealing with ordered (or otherwise messy) predictors:
+\begin{itemize}
+\item assume linearity (equal differences in predicted values between 
+  successive levels); 
+  convert the factor back to numeric
+\item use \code{contr.sdif} from the \code{MASS} package
+\item use \code{ordered} instead of \code{factor}
+\item use \code{cut}, \verb+cut_number+, \verb+cut_interval+
+  to convert continuous predictors to factors
+\end{itemize}
+
+Don't snoop!
+
+Ordered factors: contrasts
+
+<<orderedcontr>>=
+ff <- function(n) {
+  cc <- zapsmall(contr.poly(n))
+  sign(cc)*MASS::fractions(cc^2)
+}
+ff(3)
+ff(5)
+@ 
+No decrease in complexity, but improved
+interpretability.  Linear, quadratic models
+are nested within the ordered-factor model.
+
+
+\section{Categorical responses}
+
+We can either model these as \emph{multinomial},
+or as conditional Poisson (i.e., if we
+take a set of independent Poisson deviates $x_i$ 
+they are equivalent to a multinomial sample
+out of $\sum_i x_i$ with $p_i = \lambda_i/\sum \lambda_i$.
+
+In either case we have to define 
+
+$$
+L \propto \sum_i N_i \log p_i
+$$
+
+% Poisson log-likelihood:  $N \log \lambda -\lambda$
+
+Multinomial distributions are also conditionally \emph{binomial}
+if we only want to consider one category vs. all the others \ldots
+
+Here's a data set on US political preferences:
+\begin{quote}
+10 variable subset of the 1996 American National Election Study.
+Missing values and "don't know" responses have been listwise
+deleted. Respondents expressing a voting preference other than
+Clinton or Dole have been removed.
+\end{quote}
+
+<<nesdata>>=
+library(faraway)
+data(nes96)
+nn <- subset(nes96,select=c(PID,age,educ,income))
+summary(nn)
+@ 
+
+For simplicity, lump party identifications into three categories:
+<<lumpparty>>=
+nn$party <- factor(sub("(str|weak|ind)","",nn$PID))
+@ 
+
+Get a numeric value for the average income in a category:
+<<incometrans>>=
+## income breakpoints
+incbrks <- c(0,3,seq(5,9,by=2),
+             10:15,17,20,22,
+             seq(25,50,by=5),60,75,90,105,125)
+## take average of breakpoints
+inca <- (incbrks[-1]+incbrks[-length(incbrks)])/2
+@ 
+
+Name the vector:
+<<nameinc>>=
+names(inca) <- levels(nn$income)
+@ 
+
+Now something like \verb+inca["$3K-$5K"]+ would
+work \ldots
+
+Numeric versions of variables:
+<<numvars>>=
+nn <- transform(nn,nincome=inca[nn$income],
+                neduc=as.numeric(educ))
+@
+
+Categorical versions of variables:
+<<catvars>>=
+cincome <- cut_number(nn$nincome,7)
+cage <- cut_number(nn$age,7)
+cdata <- with(nn,data.frame(party,educ,cincome,cage))
+@
+
+<<plotcatvars>>=
+ggplot(cdata,aes(x=educ,fill=party))+geom_bar(position="dodge")+
+    scale_fill_brewer(palette="Dark2")
+@
+
+Rescale data, get proportions of parties by education and party:
+<<rescale>>=
+tt <- with(nn,table(educ,party))
+tot <- rowSums(tt)
+tt <- sweep(tt,1,tot,"/")
+tt <- data.frame(tt,tot)  ## automatically "melted"
+tt$neduc <- as.numeric(tt$educ)
+@ 
+
+Three ways to plot the results:
+<<bigplot,fig.width=8,cache=TRUE>>=
+g1 <- ggplot(tt,aes(x=educ,y=Freq,
+                    colour=party))+
+    geom_point(aes(size=tot))+
+    scale_y_continuous(limits=c(0,1),oob=squish)
+library(gridExtra)
+g1A <- g1+geom_line(aes(group=party))+theme(legend.position="none")
+g1B <- g1+geom_smooth(aes(x=as.numeric(educ)),method="loess")+
+    theme(legend.position="none")
+g1C <- g1 + geom_smooth(aes(group=party,weight=tot),
+                        method="glm",family=binomial)
+@ 
+
+<<bigplot2>>=
+grid.arrange(g1A,g1B,g1C,ncol=3,widths=unit(c(1,1,1.4),units="null"))
+@ 
+
+\subsection{Multinomial responses}
+
+Non-ordered categorical responses.  We have to predict
+the effects of \emph{each} predictor on \emph{each} response.
+
+<<>>=
+library(nnet)
+m1 <- multinom(party ~ age+educ+nincome, nn)
+summary(m1)
+@ 
+
+What do the parameters mean?  e.g. the first element
+of the intercept vector is the 
+log-odds of the probability of being Independent vs. Democrat
+in the baseline level; the second is the log-odds of the probability
+of being Republic vs Democrat in the baseline level.
+
+Test this:
+<<test1>>=
+z <- data.frame(party=c("Democrat","Democrat","Ind","Republican"))
+@ 
+We take the coefficient (the intercept), compute the logistic
+function (\code{plogis}), and compute the fractional equivalent.
+<<testcoef1>>=
+MASS::fractions(plogis(coef(multinom(party~1,data=z))))
+@ 
+Both of the probabilities are 1/3 (there are 1/3 as many Independents
+as Democrats, and 1/3 as many Republicans as Democrats).
+
+Change the reference level to Independent:
+<<test2>>=
+z$party <- relevel(z$party,"Ind")
+@ 
+
+<<testcoef2>>=
+MASS::fractions(plogis(coef(multinom(party~1,data=z))))
+@ 
+Compared to Independent, there are 2/3 Democrats and 1/2 Republicans \ldots
+
+Fit with numeric rather than ordinal predictors:
+<<lineduc>>=
+m2 <- multinom(party ~ age+neduc+nincome, nn)
+@ 
+
+Without education at all:
+<<noeduc>>=
+m3 <- update(m2,.~.-neduc)
+@ 
+
+What do the parameters mean??
+<<mnomsum>>=
+summary(m2)
+@ 
+
+To the extent that the non-intercept parameters are similar
+between groups, this suggests that we might be able to get
+away with a proportional-odds model (see below).
+
+Finding best AIC (smallest AIC is best; $<2 \Delta \text{AIC}$ is
+a small difference; $>10 \Delta \text{AIC}$ is a big difference).
+<<drop1,messag=FALSE>>=
+trace <- TRUE ## I don't know why, but this is necessary -- otherwise
+              ## I get an error
+(dd <- drop1(m1)) ## test="Chisq" is ignored
+@ 
+
+Compared to best model:
+<<>>=
+delta_AIC <- dd$AIC-min(dd$AIC)
+names(delta_AIC) <- rownames(dd)
+round(delta_AIC,2)
+@ 
+
+We can't get $p$ values from \code{drop1}, but
+we can do likelihood ratio tests:
+<<>>=
+anova(m1,m2,m3)  ##  education: test categorical vs linear vs null model
+@ 
+
+\code{predict.multinom} \ldots
+<<results="hide">>=
+preddata <- data.frame(nincome=mean(nn$nincome),
+                       expand.grid(age=c(20,40,60),educ=levels(nn$educ)))
+probs <- predict(m1,newdata=preddata,type="probs")
+@
+
+<<>>=
+preddata <- data.frame(preddata,probs)
+predmelt <- rename(melt(preddata,id.vars=1:3),
+                   c(variable="party",value="Freq"))
+@ 
+
+<<mnompred>>=
+g1 + geom_line(aes(group=interaction(party,age),
+                   lty=factor(age)),data=predmelt)
+@ 
+
+What else can I do with a multinomial fit?
+<<>>=
+methods(class="multinom")
+@ 
+(The ``asterisked'' functions are hidden inside the \code{nnet} package:
+e.g. to look at them you would need \code{nnet:::drop1.multinom}.)
+
+\subsection{Ordinal responses}
+
+Multiple categorical levels of response, but ordered.
+
+\emph{Proportional odds} (or \emph{proportional probability},
+depending on link) function).
+
+\code{polr} function from the \code{MASS} package;
+also the \code{ordinal} package.
+
+<<polr1>>=
+library(MASS)
+p1 <- polr(party ~ age+educ+nincome, nn)
+drop1(p1,test="Chisq")
+p2 <- polr(party ~ age+neduc+nincome, nn)
+drop1(p2,test="Chisq")
+@
+
+Note correlation among parameters:
+<<vcov>>=
+round(cov2cor(vcov(p2)),2)
+@ 
+
+Or using the \code{ordinal} package (more flexible/newer):
+<<ordinal,message=FALSE>>=
+library(ordinal)
+p3 <- clm(party ~ age+educ+nincome, data=nn)
+coef(p1)
+coef(p3)
+@
+
+Comparing log-likelihoods and AICs between multinomial and
+proportional-odds models:
+<<polrlik>>=
+logLik(m1)
+logLik(p1)
+AIC(m1)
+AIC(p1)
+library(bbmle)
+AICtab(m1,p1)
+@
+
+\bibliography{glmm}
+\end{document}
+
