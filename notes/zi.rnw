@@ -25,7 +25,7 @@
 \maketitle
 \bibliographystyle{chicago}
 
-\includegraphics[width=2.64cm,height=0.93cm]{cc-attrib-nc.png}
+\includegraphics[width=2.64cm,height=0.93cm]{../pix/cc-attrib-nc.png}
 \begin{minipage}[b]{3in}
 {\tiny Licensed under the Creative Commons 
   attribution-noncommercial license
@@ -93,6 +93,15 @@ AICtab(fm_zip,fm_zinb,fm_hp,fm_hnb)
 @ 
 
 Should consider interactions?
+
+To fit the same models in \code{glmmTMB},
+
+<<glmmTMB,cache=TRUE>>=
+library(glmmTMB)
+fm2_zip <- glmmTMB(art ~ fem + mar + kid5 + phd + ment, 
+                  zi = ~ .,  ## i.e., parameters same as conditional model
+                  family=poisson, data = bioChemists)
+@ 
 
 Expectation-maximization:
 \begin{itemize}

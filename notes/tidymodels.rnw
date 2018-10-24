@@ -56,7 +56,10 @@ The \code{broom} package is the core of the \href{https://github.com/tidymodels/
     $t$/$Z$ statistics, p values, confidence intervals, etc.)
     \begin{itemize}
       \item use \code{conf.int=TRUE} to get confidence intervals (not just SEs)
-      \item use \code
+      \item defaults to Wald CIs; use \code{conf.method="profile"} for profile CIs
+      \item use \code{exponentiate=TRUE} to back-transform log to response scale,
+        logit to odds scale, \ldots
+    \end{itemize}
   \item \code{glance} produces model summaries ($R^2$, residual df, AIC, BIC, etc.)
   \item \code{augment} produces predictions, residuals, etc..
 \end{itemize}
@@ -103,18 +106,30 @@ ggplot(aa,aes(date,cases))+geom_point()+
 
 \code{dotwhisker::dwplot} creates \emph{coefficient plots}
 \begin{itemize}
+  \item works under the hood by calling \code{tidy} for one or more models and combining the results
+  \item can pass arguments to \code{tidy} (e.g. \code{conf.method})
+  \item by default, scales continuous predictors by $2 \sigma$; use \code{by\_2sd=FALSE} to 
+    turn this off
+  \item drops intercept by default
+  \item given a (named) list of models, plots all the coefficients side-by-side (use to
+    compare different modeling approaches, or models with different subsets of predictors)
+  \item creates a \code{ggplot} object that can be post-processed by adding components, faceting, changing colour scales, etc..
+\end{itemize}
   
+Example:
 
 <<>>=
-dwplot(list(poisson=g1,QP=g2,nb2=g3,nb1=g4),effects="fixed",
+dwplot(list(poisson=g1,QP=g2,nb2=g3,nb1=g4),
        by_2sd=FALSE)+
     geom_vline(xintercept=0,lty=2)
 @ 
 
-<<>>=
+<<echo=FALSE,eval=FALSE>>=
 t1 <- tidy(g4,conf.int=TRUE,conf.method="wald")
-t2 <- tidy(g4,conf.int=TRUE,conf.method="profile")
+## need to fix!
+## t2 <- tidy(g4,conf.int=TRUE,conf.method="profile")
 @ 
+
 \section{huxtable::huxreg}
 
 If your boss insists on parameter tables:
