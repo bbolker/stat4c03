@@ -359,6 +359,8 @@ p4 <- update(p3, nominal= ~age)
 anova(p3, p4) 
 @ 
 
+Graphical tests?? (Stay tuned \ldots)
+
 \bibliography{glmm}
 \end{document}
 
