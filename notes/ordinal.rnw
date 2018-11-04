@@ -17,7 +17,7 @@
 \newcommand{\bmu}{{\bm \mu}}
 \newcommand{\X}{\mathbf X}
 
-\title{Notes for week 7}
+\title{Ordinal and categorical variables}
 \author{Ben Bolker}
 \begin{document}
 \maketitle
@@ -85,15 +85,15 @@ Ordered factors: contrasts
 <<orderedcontr>>=
 ff <- function(n) {
   cc <- zapsmall(contr.poly(n))
+  ## polynomials are scaled so that sum(c^2)=1; prettify
   sign(cc)*MASS::fractions(cc^2)
 }
 ff(3)
 ff(5)
 @ 
-No decrease in complexity, but improved
+No increase in parsimony over treatment contrasts, but improved
 interpretability.  Linear, quadratic models
 are nested within the ordered-factor model.
-
 
 \section{Categorical responses}
 
@@ -106,7 +106,7 @@ out of $\sum_i x_i$ with $p_i = \lambda_i/\sum \lambda_i$.
 In either case we have to define 
 
 $$
-L \propto \sum_i N_i \log p_i
+{\cal L} \propto \sum_i N_i \log p_i
 $$
 
 % Poisson log-likelihood:  $N \log \lambda -\lambda$
@@ -126,7 +126,7 @@ Clinton or Dole have been removed.
 library(faraway)
 data(nes96)
 nn <- subset(nes96,select=c(PID,age,educ,income))
-summary(nn)
+## summary(nn)
 @ 
 
 For simplicity, lump party identifications into three categories:
@@ -137,24 +137,24 @@ nn$party <- factor(sub("(str|weak|ind)","",nn$PID))
 Get a numeric value for the average income in a category:
 <<incometrans>>=
 ## income breakpoints
-incbrks <- c(0,3,seq(5,9,by=2),
-             10:15,17,20,22,
-             seq(25,50,by=5),60,75,90,105,125)
+incbrks <- c(0,
+             unique(readr::parse_number(nn$income)),
+             125)
 ## take average of breakpoints
-inca <- (incbrks[-1]+incbrks[-length(incbrks)])/2
+inc_avg <- (incbrks[-1]+incbrks[-length(incbrks)])/2
 @ 
 
 Name the vector:
 <<nameinc>>=
-names(inca) <- levels(nn$income)
+names(inc_avg) <- levels(nn$income)
 @ 
 
-Now something like \verb+inca["$3K-$5K"]+ would
+Now something like \verb+inc_avg["$3K-$5K"]+ would
 work \ldots
 
 Numeric versions of variables:
 <<numvars>>=
-nn <- transform(nn,nincome=inca[nn$income],
+nn <- transform(nn,nincome=inc_avg[nn$income],
                 neduc=as.numeric(educ))
 @
 
@@ -166,8 +166,10 @@ cdata <- with(nn,data.frame(party,educ,cincome,cage))
 @
 
 <<plotcatvars>>=
-ggplot(cdata,aes(x=educ,fill=party))+geom_bar(position="dodge")+
+(ggplot(cdata,aes(x=educ,fill=party))
+    +geom_bar(position="dodge")+
     scale_fill_brewer(palette="Dark2")
+)
 @
 
 Rescale data, get proportions of parties by education and party:
@@ -180,7 +182,7 @@ tt$neduc <- as.numeric(tt$educ)
 @ 
 
 Three ways to plot the results:
-<<bigplot,fig.width=8,cache=TRUE>>=
+<<bigplot,cache=TRUE>>=
 g1 <- ggplot(tt,aes(x=educ,y=Freq,
                     colour=party))+
     geom_point(aes(size=tot))+
@@ -190,10 +192,11 @@ g1A <- g1+geom_line(aes(group=party))+theme(legend.position="none")
 g1B <- g1+geom_smooth(aes(x=as.numeric(educ)),method="loess")+
     theme(legend.position="none")
 g1C <- g1 + geom_smooth(aes(group=party,weight=tot),
-                        method="glm",family=binomial)
+                        method="glm",
+                        method.args=list(family=binomial))
 @ 
 
-<<bigplot2>>=
+<<bigplot2,fig.width=12,cache=TRUE>>=
 grid.arrange(g1A,g1B,g1C,ncol=3,widths=unit(c(1,1,1.4),units="null"))
 @ 
 
@@ -202,9 +205,9 @@ grid.arrange(g1A,g1B,g1C,ncol=3,widths=unit(c(1,1,1.4),units="null"))
 Non-ordered categorical responses.  We have to predict
 the effects of \emph{each} predictor on \emph{each} response.
 
-<<>>=
+<<mnom1,results="hide">>=
 library(nnet)
-m1 <- multinom(party ~ age+educ+nincome, nn)
+m1 <- multinom(party ~ age+educ+nincome, data=nn)
 summary(m1)
 @ 
 
@@ -223,8 +226,11 @@ function (\code{plogis}), and compute the fractional equivalent.
 <<testcoef1>>=
 MASS::fractions(plogis(coef(multinom(party~1,data=z))))
 @ 
-Both of the probabilities are 1/3 (there are 1/3 as many Independents
-as Democrats, and 1/3 as many Republicans as Democrats).
+Both of the probabilities are 1/3:
+\begin{itemize}
+\item [number of independents]/[number of ind + number of dem]=1/3
+\item [number of republicans]/[number of R + number of D]=1/3
+\end{itemize}
 
 Change the reference level to Independent:
 <<test2>>=
@@ -234,15 +240,19 @@ z$party <- relevel(z$party,"Ind")
 <<testcoef2>>=
 MASS::fractions(plogis(coef(multinom(party~1,data=z))))
 @ 
-Compared to Independent, there are 2/3 Democrats and 1/2 Republicans \ldots
+
+\begin{itemize}
+\item [number of D]/[number of I + number of D]=2/3
+\item [number of R]/[number of R + number of I]=1/2
+\end{itemize}
 
 Fit with numeric rather than ordinal predictors:
-<<lineduc>>=
+<<lineduc,results="hide">>=
 m2 <- multinom(party ~ age+neduc+nincome, nn)
 @ 
 
 Without education at all:
-<<noeduc>>=
+<<noeduc,results="hide">>=
 m3 <- update(m2,.~.-neduc)
 @ 
 
@@ -257,14 +267,13 @@ away with a proportional-odds model (see below).
 
 Finding best AIC (smallest AIC is best; $<2 \Delta \text{AIC}$ is
 a small difference; $>10 \Delta \text{AIC}$ is a big difference).
-<<drop1,messag=FALSE>>=
-trace <- TRUE ## I don't know why, but this is necessary -- otherwise
-              ## I get an error
+<<drop1,message=FALSE, results="hide">>=
+trace <- TRUE ## I don't know why, but this prevents an errorn
 (dd <- drop1(m1)) ## test="Chisq" is ignored
 @ 
 
 Compared to best model:
-<<>>=
+<<modelcomp>>=
 delta_AIC <- dd$AIC-min(dd$AIC)
 names(delta_AIC) <- rownames(dd)
 round(delta_AIC,2)
@@ -272,18 +281,18 @@ round(delta_AIC,2)
 
 We can't get $p$ values from \code{drop1}, but
 we can do likelihood ratio tests:
-<<>>=
+<<lrt>>=
 anova(m1,m2,m3)  ##  education: test categorical vs linear vs null model
 @ 
 
 \code{predict.multinom} \ldots
-<<results="hide">>=
+<<pred1,results="hide">>=
 preddata <- data.frame(nincome=mean(nn$nincome),
                        expand.grid(age=c(20,40,60),educ=levels(nn$educ)))
 probs <- predict(m1,newdata=preddata,type="probs")
 @
 
-<<>>=
+<<pred2>>=
 preddata <- data.frame(preddata,probs)
 predmelt <- rename(melt(preddata,id.vars=1:3),
                    c(variable="party",value="Freq"))
@@ -295,10 +304,10 @@ g1 + geom_line(aes(group=interaction(party,age),
 @ 
 
 What else can I do with a multinomial fit?
-<<>>=
+<<methods>>=
 methods(class="multinom")
 @ 
-(The ``asterisked'' functions are hidden inside the \code{nnet} package:
+(Sometimes there are starred functions, which are hidden inside packages:
 e.g. to look at them you would need \code{nnet:::drop1.multinom}.)
 
 \subsection{Ordinal responses}
@@ -339,9 +348,18 @@ logLik(m1)
 logLik(p1)
 AIC(m1)
 AIC(p1)
-library(bbmle)
+library(bbmle) ## prettier AIC tables
 AICtab(m1,p1)
 @
+
+Alternative test of non-proportionality (for individual predictor variables):
+
+<<testprop>>=
+p4 <- update(p3, nominal= ~age)
+anova(p3, p4) 
+@ 
+
+Graphical tests?? (Stay tuned \ldots)
 
 \bibliography{glmm}
 \end{document}

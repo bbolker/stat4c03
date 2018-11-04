@@ -1,0 +1,75 @@
+---
+title: "homework 4: more topics (complete separation etc.)"
+bibliography: ../glmm.bib
+---
+
+- homework is due in Dropbox on Avenue on **Monday November 12**
+- your homework should be saved as R code with comments (`.R`), R markdown (`.Rmd`), or Sweave (`.Rnw`)
+- **none of the following functions should appear in your solution**:
+    - `setwd()`
+    - `rm(list=ls())`
+	- `attach()`
+	- `install.packages(...)`
+- the TA or I should be able run your code from scratch without any problems.
+
+## Discoveries data set
+
+Load the `faraway` package (install it first if necessary) and translate
+the `discoveries` data set to a more useful/general format (as loaded
+it is a *time-series* object, which has a single vector of values
+with the starting time and measurement frequency as attributes. R has
+some useful time-series analysis methods, but it will be easier to
+deal with in a GLM context as a data frame.
+
+```{r faraway}
+library(faraway)
+dd <- data.frame(year=1860:1959,discoveries=c(discoveries))
+```
+
+Read the (very short!) help page: `?faraway`.
+
+1. Before you look at the data, state what kind of a model (response variable, predictor variable, GLM family) you think you would use to try to analyze time trends in the number of discoveries.
+2. Generate a plot of the data with a smooth line overlaid.
+3. What would you conclude/how might you adjust your model as a result of looking at the plot?
+4. Fit linear and quadratic GLMs to the model.
+5. Use `broom::augment()` and `ggplot2::ggplot` to construct three plots: residuals vs time, residuals vs fitted values, and a scale-location plot ($\sqrt{|r_i|}$ vs. fitted value). Make sure you include both points and smooth lines. Interpret the plots.
+5. Evaluate whether the quadratic GLM shows evidence of overdispersion.
+6. Fit a quasi-likelihood version of the quadratic GLM. Is there evidence for a significant quadratic effect in the data?
+7. Use `glmmTMB()` to fit negative binomial response models that use both the linear (NB1, `family=nbinom1`) and quadratic (NB2, `family=nbinom2`) parameterizations of the negative binomial distribution. Compute the AIC values for the Poisson, NB1, and NB2 models and decide which model has the best expected predictive value: how big are the differences between the models?
+8. Using whichever family you decided on in the previous step, fit a zero-inflated model with constant zero-inflation across the whole data set (i.e. `ziformula=~1` if you use `glmmTMB`, or `discoveries ~ ... | 1` if you use `pscl::zeroinfl` (where `...` represents the conditional/non-zero-inflated model formula). What is the estimated zero-inflation probability? (Note that zero-inflated models estimate this probability on the logit scale.)
+9. Using the non-zero-inflated version of the model, simulate 1000 response vectors from the fitted model. Draw a histogram of the distribution of the number of zero values predicted across this ensemble.  Compute the observed number of zero responses in the original data set and draw some conclusions about the necessity of using a zero-inflated model.
+
+## Singing mouse data set
+
+Read in the `singingmouse_playback.csv` data set (from @pasch_interspecific_2013); compute
+a Bernoulli response variable [the original responses are
+on a count scale, but over a very small range: of 64 responses,
+27 have 0 counts (number of vocalizations recorded),
+30 have 1 count, and only 7 have 2 counts]. Use `bresponse` as
+your response variable for the following questions.
+
+```{r sm,eval=FALSE}
+sm <- read.csv("singingmouse_playback.csv")
+sm <- transform(sm, Stimulus= factor(Stimulus,
+                                     labels=c("pre","white","het","con")),
+                ID=factor(ID),
+                bresponse=as.numeric(Response>0))
+```
+
+1. Aggregate the data to compute the proportion of cases for
+each Stimulus/Species combination with at least 1 vocalization.
+(You don't need to compute the total number of cases per
+combination; there are exactly 4 observations for each combination.)
+2. Plot the aggregated data in a sensible way.
+3. Fit a logistic GLM with Stimulus and Species and their interaction
+as the predictors.
+4. Looking at the coefficient table, how do you know there is a complete
+separation problem?  How could you/should you have known from looking
+at the plot of the data?
+5. Use one of the functions in `brglm2` to do a more formal test
+of complete separation.
+6. Use `arm::bayesglm()` or `brglm2` to fit a regularized version
+of the logistic model.
+7. Generate a coefficient plot for your regularized fit (`dotwhisker::dwplot()` works for `brglm2`-based fits, you'll need `arm::coefplot()` for `bayesglm` fits).
+
+## References
