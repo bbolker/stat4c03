@@ -5,7 +5,7 @@ pdfnotes += intro distribs contrasts glm_deriv glm_comp inference logistic binom
 htmlnotes += modeling_inference
 rmdnotes += intro distribs modeling_inference
 rnwnotes += contrasts glm_deriv glm_comp inference logistic binomial_poisson separation zi tidymodels ordinal
-hw += hw1 hw2 hw1_comments hw3 hw3_sol
+hw += hw1 hw2 hw1_comments hw3 hw3_sol hw4
 
 adminhtml := $(admin:%=Admin/%.html)
 nnrmd := $(rmdnotes:%=notes/%.rmd)
