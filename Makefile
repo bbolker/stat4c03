@@ -17,12 +17,12 @@ hwhtml := $(hw:%=HW/%.html)
 ## OLD stuff from Morelia
 ## modeling_inference glmm datavis bayes bayeslab mixed_details mixedlab glmm_details glmmlab addons
 
-## Datasets += aids.csv  Banta.RData  gopherdat2.csv culcitalogreg.csv gopherdat2.RData starling.RData culcita.RData gophertortoise.txt toenail.csv dufemalepers.csv tundra.csv Elston2001_tickdata.txt lizards.csv tundra_agg.rda
+Datasets += aids.csv  Banta.RData  gopherdat2.csv culcitalogreg.csv gopherdat2.RData starling.RData culcita.RData gophertortoise.txt toenail.csv dufemalepers.csv tundra.csv Elston2001_tickdata.txt lizards.csv tundra_agg.rda
 
-## dd := $(Datasets:%=data/%)
+dd := $(Datasets:%=data/%)
 ## rr := $(Rfiles:%=R/%)
 
-all: ${adminhtml} ${nnrmd} ${nnrnw} ${nnpdf} ${nnhtml} ${hwhtml}
+all: ${adminhtml} ${nnrmd} ${nnrnw} ${nnpdf} ${nnhtml} ${hwhtml} glm_data.zip
 
 Admin/%.html: ${SRCDIR}/Admin/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='Admin')" | R --slave
@@ -64,8 +64,8 @@ notes/%.pdf: ${SRCDIR}/notes/%.rnw
 ##notes/%.tex: ${SRCDIR}/notes/%.rnw
 ##	echo "knitr::knit(\"$<\",output=\"$*.tex\")" | R --slave; mv $*.tex notes/$*.tex
 
-glmm_data.zip: 
-	cd ..; zip gh-pages/glmm_data.zip ${dd}
+glm_data.zip: 
+	cd ..; zip gh-pages/glm_data.zip ${dd}
 
 %.clean:
 	rm -f $*.out $*.log $*.aux $*-tikzDictionary $*.tex
