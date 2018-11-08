@@ -34,6 +34,10 @@ Please share \& remix noncommercially,
 mentioning its origin.}
 \end{minipage}
 
+<<setup,include=FALSE>>=
+knitr::opts_chunk$set(message=FALSE)
+@ 
+
 \section{Zero-inflation}
 
 \begin{itemize}
@@ -56,7 +60,7 @@ library(pscl)
 data("bioChemists", package = "pscl")
 @ 
 
-<<>>=
+<<bioc1>>=
 bioCh2 <- bioChemists
 bioCh2$cment <- cut(bioCh2$ment,
                     c(0,1,5,10,20,80),
@@ -82,7 +86,7 @@ equivalently
 \verb!art ~ fem + mar + kid5 + phd + ment | fem + mar + kid5 + phd + ment!, i.e. include all terms in both the zero-inflation model
 and the hurdle model.
 
-<<>>=
+<<biohurdle>>=
 fm_hp <- hurdle(art ~ ., data = bioChemists)
 fm_hnb <- hurdle(art ~ ., data = bioChemists, dist="negbin")
 summary(fm_hnb)
@@ -101,6 +105,28 @@ library(glmmTMB)
 fm2_zip <- glmmTMB(art ~ fem + mar + kid5 + phd + ment, 
                   zi = ~ .,  ## i.e., parameters same as conditional model
                   family=poisson, data = bioChemists)
+@ 
+
+To fit the model with a constant zero-inflation term:
+
+<<glmmTMB2,cache=TRUE>>=
+fm2_zip0 <- update(fm2_zip, ziformula = ~ 1)
+@ 
+
+<<ncoef,echo=FALSE>>=
+nc <- length(fixef(fm2_zip0)$cond)
+## ?? would like to include in \Sexpr{ } below but ... ???
+@ 
+
+This model has 6 coefficients for the
+conditional (count) model, but only one for the zero-inflation probability.
+Since there is only a single (intercept) parameter, we can inverse-link transform
+it (\code{plogis}, since the link for the zero-inflation model is logit) to
+get the zero-inflation probability:
+
+<<glmmTMB_zi>>=
+(zi_logit <- fixef(fm2_zip0)$zi)
+(zi_prob <- plogis(zi_logit))
 @ 
 
 Expectation-maximization:

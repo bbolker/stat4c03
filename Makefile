@@ -3,6 +3,7 @@ SRCDIR=..
 admin += outline schedule
 pdfnotes += intro distribs contrasts glm_deriv glm_comp inference logistic binomial_poisson separation zi tidymodels ordinal
 htmlnotes += modeling_inference glmm
+slidesnotes += glmm
 rmdnotes += intro distribs modeling_inference glmm
 rnwnotes += contrasts glm_deriv glm_comp inference logistic binomial_poisson separation zi tidymodels ordinal
 hw += hw1 hw2 hw1_comments hw3 hw3_sol hw4
@@ -12,6 +13,7 @@ nnrmd := $(rmdnotes:%=notes/%.rmd)
 nnrnw := $(rnwnotes:%=notes/%.rnw)
 nnpdf := $(pdfnotes:%=notes/%.pdf)
 nnhtml := $(htmlnotes:%=notes/%.html)
+nnslides := $(slidesnotes:%=notes/%.slides.html)
 hwhtml := $(hw:%=HW/%.html)
 
 ## OLD stuff from Morelia
@@ -22,7 +24,7 @@ Datasets += aids.csv  Banta.RData  gopherdat2.csv culcitalogreg.csv gopherdat2.R
 dd := $(Datasets:%=data/%)
 ## rr := $(Rfiles:%=R/%)
 
-all: ${adminhtml} ${nnrmd} ${nnrnw} ${nnpdf} ${nnhtml} ${hwhtml} glm_data.zip
+all: ${adminhtml} ${nnrmd} ${nnrnw} ${nnpdf} ${nnslides} ${nnhtml} ${hwhtml} glm_data.zip
 
 Admin/%.html: ${SRCDIR}/Admin/%.rmd
 	echo "rmarkdown::render(\"$<\",output_format='html_document',output_dir='Admin')" | R --slave
