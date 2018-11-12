@@ -1,0 +1,407 @@
+---
+title: "Linear mixed models in R: nitty-gritty"
+author: Ben Bolker
+bibliography: "../glmm.bib"
+date: "`r format(Sys.time(), '%d %B %Y ')`"
+---
+
+![cc](../pix/cc-attrib-nc.png)
+Licensed under the 
+[Creative Commons attribution-noncommercial license](http://creativecommons.org/licenses/by-nc/3.0/).
+Please share \& remix noncommercially, mentioning its origin.
+
+```{r pkgs,echo=FALSE,message=FALSE}
+library(ggplot2);theme_set(theme_bw())
+library(ggExtra)
+library(broom)
+library(cowplot)
+library(pander)
+library(lme4)
+library(broom)
+library(broom.mixed)
+library(emmeans)
+```
+
+# Model specification
+
+## Distribution/family
+
+- going to assume Gaussian (Normal) here
+- may need to transform
+- we care about the **conditional** distribution, not the marginal
+- Box-Cox not implemented: could try `MASS::boxcox()` on residuals
+- brute-force: if it makes sense or *if* residuals look bad, try log/sqrt?
+- bias $\gg$ heteroscedasticity/outliers $\gg$ Normality
+
+---
+
+```{r marg_plot,echo=FALSE,fig.width=10}
+set.seed(101)
+dd <- data.frame(x=runif(300,0,500))
+dd$y <- with(dd,rnorm(300,mean=1+2*x,sd=10))
+lm1 <- lm(y~x,data=dd)
+g1 <- ggMarginal(ggplot(dd,aes(x,y))+geom_point()+
+                 geom_smooth(method="lm")+
+                 ggtitle("marginal"),
+                 margins="y",type="histogram")
+aa <- broom::augment(lm1,data=dd)
+g2 <- ggExtra::ggMarginal(ggplot(aa,aes(x,.resid))+geom_point()+
+                 ggtitle("conditional"),
+                 margins="y",type="histogram")
+cowplot::plot_grid(g1,g2)
+```
+
+## Look at your data!
+
+- use `table()` to confirm how many observations per level of factor
+    - which factors covary?
+    - balanced?
+- plot the data
+	
+## Random effects: reminder [@bolker_glmm_2014]
+
+- don’t want to test differences across specific groups
+- lots of groups (>5), few observations per group, unbalanced
+- exchangeable groups
+
+## Formulas
+
+- random effects specified with `|` as `(a|g1) + (b|g2) + ...`
+- right-hand side is the *grouping variable* (always categorical, usually a factor)
+- left-hand side is the *varying term* (most often 1)s
+- terms separated by `+` are independent
+
+```{r ftab,echo=FALSE,results="asis"}
+ftab <- matrix(c("β_0 + β_{1}X_{i} + e_{si}",
+                 "n/a (Not a mixed-effects model)",
+                 "(β_0 + b_{S,0s}) + β_{1}X_i + e_{si}",
+                 "∼ X + (1∣Subject)",
+                 "(β_0 + b_{S,0s}) +  (β_{1} + b_{S,1s}) X_i + e_{si}",
+                 "~ X + (1 + X∣Subject)",
+                 "(β_0 + b_{S,0s} + b_{I,0i}) + (β_{1} + b_{S,1s}) X_i + e_{si}",
+                 "∼ X + (1 + X∣Subject) + (1∣Item)",
+                 "As above, but $S_{0s}$, $S_{1s}$ independent",
+                 "∼ X + (1∣Subject) + (0 + X∣ Subject) + (1∣Item)", 
+                 "(β_0 + b_{S,0s} + b_{I,0i}) + β_{1}X_i + e_{si}",
+                 "∼ X + (1∣Subject) + (1∣Item)", 
+                 "(β_0 + b_{I,0i}) +  (β_{1} + b_{S,1s})X_i + e_{si}",
+                 "∼ X + (0 + X∣Subject) + (1∣Item)"),
+               byrow=TRUE,ncol=2,
+               dimnames=list(NULL,c("equation","formula")))
+ftab <- data.frame(ftab,stringsAsFactors=FALSE)
+ff <- !grepl("As above",ftab$equation)
+ftab$equation[ff] <- sprintf("$%s$",ftab$equation[ff])
+ff <- !grepl("n/a",ftab$formula)
+ftab$formula[ff] <- sprintf("`%s`",ftab$formula[ff])
+pander::pander(ftab,justify="left")
+```
+
+Modified from: http://stats.stackexchange.com/questions/13166/rs-lmer-cheat-sheet?lq=1 (Livius)
+
+## Formulas, interactions, nesting etc.
+
+`a*b` = main effects plus interaction, `a:b` = interaction only, `a/b` = `a` + `a:b`
+
+- Nested: `(1|f/g)` equivalent to `(1|f) + (1|f:g)`. e.g. subplots vary within plots (but "subplot 1 of every plot" isn't meaningful)
+- Crossed: `(1|f) + (1|g)`. e.g. years vary, and plots vary independently
+- Crossed+: `(1|f) + (1|g) + (1|f:g)`. e.g. years vary, and plots vary independently, and plots also vary *within* years (for LMMs, assumes >1 observation per plot/year combination). (`(1|f*g)` should be allowed but ...)
+
+Don't need explicit nesting if your sub-groups are uniquely labeled (i.e. `A1`, `A2`, ..., `B1`, `B2`, ...)
+
+## What is the maximal model?
+
+- Which effects vary *within* which groups?
+- If effects don't vary within groups, then we *can't* estimate among-group variation in the effect
+     - convenient
+     - maybe less powerful (among-group variation is lumped into residual variation)
+- e.g. female rats exposed to different doses of radiation, multiple pups per mother, multiple measurements per pup (labeled by time). Maximal model ... ?
+
+Maximal model **often won't work**
+
+## Random-slopes models: what does `(x|g)` really do?
+
+- equivalent to `(1+x|g)`
+- both intercept (baseline) and slope vary across groups
+- estimates **bivariate** zero-centered distribution:
+
+$$
+(\textrm{intercept}, \textrm{slope}) =
+\textrm{MVN}\left(\boldsymbol 0,
+\left[
+\begin{array}{cc}
+\sigma^2_{\textrm{int}} &
+\sigma_{\textrm{int},\textrm{slope}} \\
+\sigma_{\textrm{int},\textrm{slope}} & 
+\sigma^2_{\textrm{slope}}
+\end{array}
+\right]
+\right)
+$$
+
+---
+
+##
+
+- maximal model can get very complicated (e.g. `(1+x+y+z+...|g)`: $n$ effects require $n(n+1)/2$ variances + covariances
+
+## Other FAQs
+
+- Can you have continuous variables as REs?  
+A: yes, as *varying terms*, but not as *grouping variables*
+- Can a variable be in the model as both FE and RE?  
+A: only in the special case where $x$ is numeric but discrete (e.g. year) and >1 observation per $x$ value;  
+FE describes overall trend, RE describes variation around the trend
+
+## What is a practical model?
+
+- Fits aren't **singular**
+- singular = zero variances, +/- 1 correlations
+- More subtle for larger models:  
+`all(abs(getME(x,"theta"))>1e-4)`
+
+## Why are fits singular?
+
+Essentially, because the *observed* among-group variation is less than the *expected* among-group variation (= $\sigma^2_{\mbox{among}} + \sigma^2_{\mbox{within}}/n$). More generally, because *some* dimension of the variance-covariance matrix has zero extent ...
+
+```{r singsims,echo=FALSE,fig.width=7,fig.height=4,cache=TRUE,message=FALSE}
+simfun <- function(n1=5,n2=5,sd1=1,sd2=1) {
+  d <- expand.grid(f1=factor(seq(n1)),f2=factor(seq(n2)))
+  u1 <- rnorm(n1,sd=sd1)
+  d$y <- rnorm(n1*n2,mean=u1,sd=sd2)
+  d
+}
+require(lme4)
+fitfun <- function(d=simfun()) {
+  sqrt(unlist(VarCorr(lmer(y~(1|f1),data=d))))
+}
+set.seed(101)
+sd_dist1 <- replicate(500,fitfun())
+sd_dist2 <- replicate(500,fitfun(simfun(n1=3)))
+sd_List <- list(n1.5=sd_dist1,n1.3=sd_dist2)
+plotfun <- function(x,trueval,main="") {
+  par(las=1,bty="l")
+  hist(x,breaks=50,col="gray",main=main,xlab="est. sd",
+       freq=FALSE)
+}
+par(mfrow=c(1,2))
+plotfun(sd_List[[1]],main="sd=1,res.sd=1,5 groups")
+plotfun(sd_List[[2]],main="sd=1,res.sd=1,3 groups")
+invisible(dev.off())
+```
+
+## Simplified versions of models
+
+- `(1|b/a)` ([positive] compound symmetry) vs. `(a|b)`:
+$$
+(\textrm{intercept}, \textrm{slope}) =
+\textrm{MVN}\left(\boldsymbol 0,
+\left[
+\begin{array}{ccccc}
+\sigma^2_{\{b|1\}}  & . & . & . & . \\
+\sigma_{\{b|1\},\{b|a_{21}\}} &
+\sigma^2_{\{b|a_{21}\}} & . & . & . \\
+\sigma_{\{b|1\},     \{b|a_{31}\}} &
+\sigma_{\{b|a_{21}\},\{b|a_{31}\}} &
+\sigma^2_{\{b|a_{31}\}} & . & . \\
+\sigma_{\{b|1\}     ,\{b|a_{41}\}} &
+\sigma_{\{b|a_{21}\},\{b|a_{41}\}} &
+\sigma_{\{b|a_{31}\},\{b|a_{41}\}} &
+\sigma^2_{\{b|a_{41}\}} & . \\
+\sigma_{\{b|1\},\{b|a_{51}\}} &
+\sigma_{\{b|a_{21}\},\{b|a_{51}\}} &
+\sigma_{\{b|a_{31}\},\{b|a_{51}\}} &
+\sigma_{\{b|a_{41}\},\{b|a_{51}\}} &
+\sigma^2_{\{b|a_{51}\}}
+\end{array}
+\right]
+\right)
+$$
+(=$(n(n+1))/2 = (4\times 5)/2 = 10$ parameters)
+vs.
+$$
+\left[
+\begin{array}{ccccc}
+\sigma^2 & . & . & . & . \\
+\rho \sigma^2 & \sigma^2 & . & . & . \\
+\rho \sigma^2 & \rho \sigma^2 & \sigma^2 & . & .  \\
+\rho \sigma^2 & \rho \sigma^2 & \rho \sigma^2 & \sigma^2 & .  \\
+\rho \sigma^2 & \rho \sigma^2 & \rho \sigma^2 & \rho \sigma^2 & \sigma^2 
+\end{array}
+\right]
+$$
+where $\sigma^2 = \sigma^2_{\{b|1\}}+\sigma^2_{\{a:b|1\}}$,
+$\rho = \sigma^2_{\{b|1\}}/\sigma^2$ (=2 parameters;
+$\rho$ must be >0)
+
+- `(1+x+y+z||b)`
+     - independent terms
+     - expands to `(1|b) + (0+x|b) + ...`
+	 - `lme4` version **only works properly for continuous predictors**
+	 - `afex::mixed` can do this
+	 - independent model is no longer invariant to shifts/reparameterization
+	 - $n$ instead of $n(n+1)/2$ parameters
+- RE "nested within" FE, e.g. if not enough groups at the top level;
+`y ~ g1 + (1|g1:g2)`; *more* parameters but fixed rather than random
+
+## Restricted maximum likelihood (REML)
+
+- reduce bias in estimated variances and covariances
+- similar to dividing by $n-1$ instead of $n$ when computing sample variances
+- example: paired $t$-test
+- works by 
+
+## Fit model
+
+```{r ss}
+m1 <- lmer(Reaction ~ Days + (Days|Subject), sleepstudy)
+```
+
+## Diagnostics: residual scale
+
+Similar to generalized linear models: fitted vs. residual,
+scale-location, Q-Q 
+
+```{r diag0,results="hide",fig.keep="none"}
+aa <- augment(m1)
+## fitted vs resid
+plot(m1,type=c("p","smooth"))
+## scale-location
+plot(m1,sqrt(abs(resid(.)))~fitted(.),type=c("p","smooth"))
+## q-q
+lattice::qqmath(m1,id=0.05)
+```
+
+Or with `augment` and ggplot ...
+
+```{r diag,results="hide",fig.keep="none"}
+aa <- augment(m1)
+## fitted vs resid
+ggplot(aa,aes(.fitted,.resid))+geom_point()+geom_smooth()
+## scale-location
+ggplot(aa,aes(.fitted,sqrt(abs(.resid))))+geom_point()+geom_smooth()
+## q-q
+ggplot(aa)+stat_qq(aes(sample=.resid))
+```
+
+# The broom/broom.mixed packages
+
+- `tidy`: get coefficient values
+    - `effects="fixed"`
+    - `effects="ran_vars"`
+	- `effects="ran_vals"`
+	- `effects="ran_coefs"`
+- `glance`: get model summaries
+- `augment`: get fitted, residuals, possibly predictions	
+
+# Inference
+
+## Likelihood
+
+- probability of data given model
+- for mixed models, includes the integral over the random effects
+
+## Profiles and intervals
+
+## Wald approximation
+
+most important:
+
+- small sample sizes
+- values near boundaries
+     - changing scales may help
+
+more important for variance parameters than fixed-effect parameters
+
+## Finite-size corrections
+
+e.g. Normal vs. $t$
+
+
+## Posterior predictive simulation
+
+- if there is some value you're interested in that you can compute from your data (e.g. number of zero observations, or total NPP), you can `simulate()` it fro the fitted model:
+
+```{r pps}
+
+```
+
+## Inference: fixed effects, Wald
+
+- parameter estimates: `summary()`
+- termwise tests: `car::Anova`, `afex::anova`
+- contrasts/effects/post-hoc tests: `emmeans`, `effects` packages
+
+```{r anova,results="hide"}
+car::Anova(m1)
+```
+
+## Degrees of freedom
+
+- level-counting: `R/calcDenDF.R`
+- `lmerTest`/`afex`; Satterthwaite, Kenward-Roger
+
+```{r}
+library(lmerTest)
+summary(as_lmerModLmerTest(m1))
+summary(as_lmerModLmerTest(m1),ddf="Kenward-Roger")
+```
+
+Q: Why not use `lmerTest` all the time?  
+A: it can make it a little harder to diagnose fitting problems
+
+## Inference: fixed effects, likelihood ratio test
+
+- individual parameters: `profile()`, `confint()`
+- fit pairwise models and use `anova()` to compare
+- `drop1`, `afex::anova()`
+
+```{r ci, cache=TRUE}
+confint(m1)
+```
+
+What took so long?
+
+```{r prof,cache=TRUE,echo=FALSE}
+pp <- as.data.frame(profile(m1,signames=FALSE))
+ggplot(pp,aes(.focal,.zeta^2))+geom_point()+geom_line()+
+    facet_wrap(~.par,scale="free_x")
+```
+
+## Inference: parametric bootstrap
+
+Very slow!
+
+- `pbkrtest`
+- `confint(.,method="boot")`
+
+## Inference: random effects
+
+- Wald is probably very bad
+- profile, `anova()`
+- parametric bootstrap
+- boundary problems
+
+## Inference: CIs on predictions etc.
+
+```{r eval=FALSE}
+mm <- model.matrix(terms(fitted_model),newdat)
+se_pred <- sqrt(diag(mm %*% tcrossprod(vcov(fitted_model),mm)))
+```
+
+## emmeans etc.
+
+```{r oats_effects}
+data("Oats",package="nlme")
+m_oats <- lmer(yield~nitro*Variety+(1|Block),data=Oats)
+(e1 <- emmeans(m_oats,~nitro|Variety))
+plot(e1)
+e2 <- emmeans(m_oats,~Variety)
+##
+contrast(e2,"pairwise")
+```
+
+also see the `effects` package.
+
+```{r oats_anova}
+car::Anova(m_oats,test="F")
+```
