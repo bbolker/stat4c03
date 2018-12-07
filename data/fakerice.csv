@@ -1,0 +1,9 @@
+acid,env,growth
+control,light,7
+control,dark,4
+HCl,light,6
+HCl,dark,2.5
+propionic,light,3
+propionic,dark,5
+butyric,light,2
+butyric,dark,6
