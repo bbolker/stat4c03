@@ -96,6 +96,9 @@ img {
 button.code-folding-btn:focus {
   outline: none;
 }
+summary {
+  display: list-item;
+}
 </style>
 
 
@@ -103,14 +106,74 @@ button.code-folding-btn:focus {
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -121,7 +184,7 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">STAT 4/6C03:Final exam 2018</h1>
-<h4 class="date"><em>7 December 2018</em></h4>
+<h4 class="date"><em>7 December 2018 (updated 13 Dec)</em></h4>
 
 </div>
 
@@ -134,45 +197,45 @@ $(document).ready(function () {
 <li>The exam is due in the dropbox on Avenue to Learn by <strong>midnight on Friday 21 December</strong> (i.e. the end of Friday). Please submit your solutions as a single <code>.Rnw</code> or <code>.R</code> file. Your solution should include self-contained, <em>working</em> R code (points off for anything that doesn’t work when I try it!) and an explanation of what you did.</li>
 </ul>
 </div>
-<div id="contrasts-and-interactions" class="section level2">
-<h2>Contrasts and interactions</h2>
+<div id="i.-contrasts-and-interactions" class="section level2">
+<h2>I. Contrasts and interactions</h2>
 <p>The file <code>fakerice.csv</code> has some (made-up) data on rice growth with four seed treatments (control, hydrochloric acid (HCl: inorganic), propionic (organic) and butyric (organic) acid).</p>
 <ol style="list-style-type: decimal">
 <li><p>Set up a custom contrast matrix where the parameters represent (a) control; (b) difference in growth rate between control and acid treatments; (c) difference in growth rate between inorganic and organic acid treatments; (d) difference between growth rate under the two organic acid treatments.</p></li>
-<li><p>In a linear model <code>growth~acid</code>, show the manual calculations that give the estimated value of the three parameters.</p></li>
+<li><p>In a linear model <code>growth~acid</code>, show the manual calculations that give the estimated value of the four parameters defined in question 1.</p></li>
 <li><p>Fit the model with the full interaction of <code>acid</code> and <code>env</code>, using the custom contrast matrix for <code>acid</code> and default contrasts for <code>env</code>. Explain in words what the main effects of <code>acid</code>=inorganic vs organic and <code>env</code>=dark vs light are estimating in this model.</p></li>
 <li><p>Refit the model with sum-to-zero contrasts for <code>env</code>. Explain the meanings of inorganic-vs-organic and dark-vs-light in this case. What is the relationship between the interaction coefficients in this model and the previous model? Why?</p></li>
 </ol>
 </div>
-<div id="seatbelts-data-set" class="section level2">
-<h2>Seatbelts data set</h2>
+<div id="ii.-seatbelts-data-set" class="section level2">
+<h2>II. Seatbelts data set</h2>
 <p>The file <code>seatbelts.csv</code> contains information on numbers of people killed or injured in road accidents in the UK (it’s a modified version of the <code>?Seatbelts</code> data set from base R). The columns are <code>date</code>, <code>year</code>, <code>month</code> (self-explanatory); <code>km</code> (“distance driven”, must be in thousands? of kilometers); <code>PetrolPrice</code> (petrol=gasoline); <code>law</code> (whether or not a seatbelt law was in place); <code>type</code> (drivers, front-seat passengers, or back-seat passengers); <code>kill_injure</code> (number killed or seriously injured in accidents)</p>
 <ol style="list-style-type: decimal">
 <li><p>Using ggplot or base R graphics, plot (a) the number of deaths and injuries per km driven as a function of time, subdivided by type. Add a vertical line at the time the law came into effect (b) the number of deaths and injuries per km by month, subdivided by type. (You can do the plots any way you want, but I found the results for the monthly pattern were clearest if I plotted lines with each type in a separate facet and used <code>aes(group=year)</code>; using a log10 scale for the y-axis helped too.)</p></li>
-<li><p>Create a date variable <code>date0</code> that measures time <em>in years</em> since the beginning of the data set; fit an appropriate GLM (remember these are count data) that predicts the number of deaths and injuries per kilometer driven using the main effects <code>date0</code>, <code>law</code>, <code>cos(month/12)</code> and <code>sin(month/12)</code> (to account for seasonal effects), and <code>PetrolPrice</code>, and their interactions with driver/passengers type.</p></li>
+<li><p>Create a date variable <code>date0</code> that measures time <em>in years</em> since the beginning of the data set; fit an appropriate GLM (remember these are count data) that predicts the number of deaths and injuries per kilometer driven using the main effects <code>date0</code>, <code>law</code>, <code>cos(2*pi*month/12)</code> and <code>sin(2*pi*month/12)</code> (to account for seasonal effects), and <code>PetrolPrice</code>, and their interactions with driver/passengers type.</p></li>
 <li><p>Produce graphical diagnostic plots; what do you conclude?</p></li>
 <li><p>Check for overdispersion and adjust/refit your model appropriately; explain what/why you did.</p></li>
-<li><p>Evaluate the statistical significance of the interactions (at the level of the <em>term</em>, not the level of the individual parameters). You can do this any way you want (Wald, likelihood ratio test, bootstrap :-) ), but you should specify which one you did, and explain its benefits and limitations.</p></li>
+<li><p>Evaluate the statistical significance of the interactions (at the level of the <em>term</em>, not the level of the individual parameters) - in particular, evaluate the effect of adding or removing <code>cos(2*pi*month/12)</code> and <code>sin(2*pi*month/12)</code> together, to test the seasonal effect, rather than testing <code>cos</code> and <code>sin</code> separately. You can do this any way you want (Wald, likelihood ratio test, bootstrap :-) ), but you should specify which one you did, and explain its benefits and limitations.</p></li>
 <li><p>Evaluate the effect of <code>law</code> on the three driver/passenger types, including the confidence intervals of the parameters involving <code>law</code>. Don’t just evaluate significance; interpret the quantitative values of the parameter estimates.</p></li>
 <li><p>Generate predicted values for your model, and confidence intervals on the predictions, and create a plot that shows the raw data along with predicted values and their confidence intervals.</p></li>
 </ol>
 </div>
-<div id="salamanders-zero-inflation" class="section level2">
-<h2>Salamanders (zero-inflation)</h2>
+<div id="iii.-salamanders-zero-inflation" class="section level2">
+<h2>III. Salamanders (zero-inflation)</h2>
 <p>The <code>Salamanders</code> data set (<a href="http://dx.doi.org/10.5061/dryad.5m8f6" class="uri">http://dx.doi.org/10.5061/dryad.5m8f6</a>) gives the number of salamanders of different species counted in different streams. <code>site</code>=samling site; <code>sample</code>=sample number at a given site; <code>count</code>=number of salamanders; <code>cover</code>=(scaled) availability of refuge within the stream; <code>mined</code>=whether the site was affected by mountaintop mining or not; <code>DOP</code>=(scaled) days since precipitation; <code>Wtemp</code>=(scaled) water temperature; <code>DOY</code>=(scaled) day of year. <code>spp</code> is the salamander species; the <code>sal_agg</code> data set combines all species within a sample.</p>
 <p>Use the aggregated data set for the rest of this question.</p>
 <ol style="list-style-type: decimal">
 <li><p>Create univariate plots of number of counts (response) as a function of each of the continuous covariates; use colour or shape to distinguish between samples from mined and non-mined sites.</p></li>
-<li><p>Fit a negative binomial model (NB2, i.e. variance is a quadratic function of the mean) using main effects of all of the available covariates.</p></li>
+<li><p>Fit a negative binomial model (NB2, i.e. variance is a quadratic function of the mean) using main effects of all of the available covariates (<code>DOP</code>, <code>Wtemp</code>, <code>DOY</code>, <code>mined</code>).</p></li>
 <li><p>Plot diagnostics, colouring the points by whether they correspond to mined sisites or not.</p></li>
 <li><p>Generate 1000 predictive simulations from your fitted model; produce a plot showing the distribution of the number of zero-count observations in the ensemble of simulations. Compare the number of zero-count observations in the data and draw conclusions about the need (or not) for a zero-inflated model.</p></li>
 <li><p>Using the <code>glmmTMB</code> package, fit regular and zero-inflated NB1 and NB2 models (assume the level of zero-inflation is independent of the covariates). Compute AIC for all four models and describe your conclusions about which model is best, why, and by how much. Repeat the predictive simulations and count-of-zeros plot for your best model.</p></li>
 <li><p>What conclusions do you draw about the effect of mining on (aggregated) salamander counts?</p></li>
 </ol>
 </div>
-<div id="mixed-models" class="section level2">
-<h2>Mixed models</h2>
-<p>The <code>Early</code> data set</p>
+<div id="iv.-mixed-models" class="section level2">
+<h2>IV. Mixed models</h2>
+<p>The <code>Early</code> data set is from the <code>mlmRev</code> package:</p>
 <blockquote>
 <p>The 103 infants from low income African American families were divided into a treatment group (58 infants) and a control group (45 infants). Starting at 0.5 years of age the infants in the treatment group were exposed to an enriched environment. Each infant’s cognitive score on an age-specific, normalized scale was recorded at ages 1, 1.5, and 2 years.</p>
 </blockquote>
@@ -186,7 +249,7 @@ $(document).ready(function () {
 <ol start="3" style="list-style-type: decimal">
 <li><p>What is the <em>maximal</em> random-effects model for this experimental design, i.e. what is the most complex random-effects specification we can <em>theoretically</em> fit?</p></li>
 <li><p>Use <code>lmer</code> to fit the random-slopes model (i.e. including variation among individuals in intercept and slope [age effects], and the correlation between these two sources of variability). What is the problem with this model? How can you tell?</p></li>
-<li><p>Fit a reduced form of the previous model that forces independent variation in the intercept and slope (use <code>||</code> in <code>lmer</code>, or <code>diag()</code> in <code>glmmTMB</code>). <em>Ignore any convergence warnings</em> (not generally OK, but I’m asking you to for right now).</p></li>
+<li><p>Fit a reduced form of the previous model that forces independent variation in the intercept and slope (use <code>||</code> in <code>lmer</code>, or <code>diag()</code> in <code>glmmTMB</code>). <em>Ignore any convergence warnings</em> (not generally OK, but I’m asking you to ignore warnings for this question).</p></li>
 <li><p>Fit a model with variation in the intercept only. Compare the three models (intercept+slope+correlation, independent intercept+slope, intercept-only) by AIC. What do you conclude?</p></li>
 <li><p>Using the <em>most complex non-singular mixed model</em>, compare the conclusions about the effectiveness of the treatment between the mixed model and the linear model that uses <code>cAge</code>. If you used <code>lme4</code>, compare the estimate, standard error and t-statistic; if you used <code>lmerTest</code>, you can compare the p-values and residual degrees of freedom as well.</p></li>
 </ol>
